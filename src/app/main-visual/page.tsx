@@ -7,6 +7,7 @@ import PreviewModal from '../../components/PreviewModal';
 import { TextItem } from '../builder/types';
 import {
   MAIN_VISUAL_SIZES,
+  MainVisualCanvas as MainVisualCanvasType,
   MainVisualDevice,
   MainVisualState,
   createDefaultText,
@@ -515,7 +516,7 @@ export default function MainVisualBuilderPage() {
               .filter((d) => d !== device)
               .map((d) => {
                 const s = MAIN_VISUAL_SIZES[d];
-                const c = state[d];
+                const c: MainVisualCanvasType = state[d];
                 return (
                   <div
                     key={d}
