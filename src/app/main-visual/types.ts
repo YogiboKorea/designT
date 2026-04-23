@@ -16,6 +16,7 @@ export interface MainVisualCanvas {
   bgImage: string;   // blob: URL 또는 dataURL
   bgColor: string;   // 배경 이미지가 없을 때 사용
   texts: TextItem[];
+  showDateBar?: boolean; // 날짜 바 표시 여부
 }
 
 export interface MainVisualState {
