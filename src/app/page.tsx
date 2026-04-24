@@ -619,26 +619,27 @@ function Card({
           borderTop: '1px solid #f3f4f6',
         }}
       >
-        {tab === 'event' ? (
-          <Link href={editHref} style={{ ...linkReset, flex: 1 }}>
-            <button style={btnCardPrimary}>수정</button>
-          </Link>
+        <Link href={editHref} style={{ ...linkReset, flex: 1 }}>
+          <button style={btnCardPrimary}>수정</button>
+        </Link>
+        {ev.imageUrl ? (
+          <button
+            style={{ ...btnCardPrimary, flex: 1 }}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              window.open(ev.imageUrl, '_blank');
+            }}
+            title="이미지 크게 보기"
+          >
+            확인
+          </button>
         ) : (
-          ev.imageUrl ? (
-            <button
-              style={{ ...btnCardPrimary, flex: 1 }}
-              onClick={(e) => onCopyUrl(e, ev.imageUrl!)}
-            >
-              🔗 URL 복사
-            </button>
-          ) : (
-            <button style={{ ...btnCardPrimary, flex: 1, opacity: 0.5 }} disabled>
-              URL 없음
-            </button>
-          )
+          <button style={{ ...btnCardPrimary, flex: 1, opacity: 0.5 }} disabled>
+            확인 불가
+          </button>
         )}
-
-        {ev.imageUrl && tab === 'event' && (
+        {ev.imageUrl && (
           <button
             style={btnCardIcon}
             onClick={(e) => onCopyUrl(e, ev.imageUrl!)}

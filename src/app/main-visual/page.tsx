@@ -1097,6 +1097,12 @@ export default function MainVisualBuilderPage() {
         }
       }
 
+      // FTP 전체 실패 시 모드: DB 저장 취소
+      // (FTP 실패로 base64 원본 다이렉트 저장 시 Vercel의 4.5MB Request Payload 제한을 초과해 413 Error & JSON 파싱 에러 유발)
+      if (toUpload.length > 0 && Object.keys(uploaded).length === 0) {
+        throw new Error('FTP 서버 연동 실패로 DB 기록이 중단되었습니다. Vercel의 환경변수(FTP_USER 등) 설정을 확인하세요.');
+      }
+
       // 3) DB 기록
       const payload = {
         title,
