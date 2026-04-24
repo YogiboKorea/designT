@@ -26,15 +26,13 @@ export async function POST(req: Request) {
       secure: false,
     });
 
-    // Ensure directory exists
-    await client.ensureDir('/web/img/design');
-
     // Create a temporary stream from the buffer to upload
     const { Readable } = require('stream');
     const stream = Readable.from(buffer);
 
-    // Upload from stream
-    await client.uploadFrom(stream, filename);
+    // Vercel(Linux) 환경에서 ensureDir(/) 명령어가 Cafe24 가상 루트 구조와 충돌해 550 에러를 낼 수 있습니다.
+    // 폴더가 이미 있으므로 cd, mkd 없이 절대 경로로 다이렉트 업로드합니다.
+    await client.uploadFrom(stream, `/web/img/design/${filename}`);
 
     const imageUrl = `https://yogibo.openhost.cafe24.com/web/img/design/${filename}`;
 
