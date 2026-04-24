@@ -265,7 +265,7 @@ export default function MainVisualBuilderPage() {
    *  최초 1회만 다운로드(~30MB), 이후 브라우저 캐시 사용.
    */
   const runBackgroundRemoval = async (url: string): Promise<string> => {
-    // @ts-expect-error — 런타임 npm install 후 해결. 타입 선언 없을 경우 ignore.
+    // @ts-ignore — 로컬 환경과 Vercel 환경의 타입 인식 차이로 인한 빌드 에러 방지
     const mod = await import('@imgly/background-removal');
     const removeBackground = mod.removeBackground as (
       input: string | Blob,
@@ -1561,7 +1561,11 @@ export default function MainVisualBuilderPage() {
                     {c.texts.map((t) => {
                       const lh = t.style.lineHeight;
                       const resolvedLh =
-                        lh === undefined ? 1.2 : lh >= 4 ? `${lh}px` : lh;
+                        lh === undefined
+                          ? `${t.style.fontSize * 1.2}px`
+                          : lh < 4
+                            ? `${t.style.fontSize * lh}px`
+                            : `${lh}px`;
                       const style: React.CSSProperties = {
                         position: 'absolute',
                         left: `${t.position.x}px`,

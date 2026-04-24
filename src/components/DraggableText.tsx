@@ -69,10 +69,10 @@ export default function DraggableText({ item, isActive, onSelect, onUpdate, onDe
 
   const resolvedLineHeight =
     style.lineHeight === undefined
-      ? 1.2
-      : style.lineHeight >= 4
-        ? `${style.lineHeight}px`
-        : style.lineHeight;
+      ? `${style.fontSize * 1.2}px`
+      : style.lineHeight < 4
+        ? `${style.fontSize * style.lineHeight}px`
+        : `${style.lineHeight}px`;
 
   const textStyle: React.CSSProperties = {
     fontSize: `${style.fontSize}px`, 
@@ -109,8 +109,8 @@ export default function DraggableText({ item, isActive, onSelect, onUpdate, onDe
         left: `${position.x}px`,
         top: `${position.y}px`,
         cursor: isDragging ? 'grabbing' : 'grab',
-        padding: '0.5rem',
-        border: isActive ? '2px dashed var(--primary-color)' : '1px solid transparent',
+        padding: '0px',
+        border: isActive ? '2px dashed var(--primary-color)' : '2px solid transparent',
         backgroundColor: isActive ? 'rgba(255,255,255,0.8)' : 'transparent',
         borderRadius: '4px',
         userSelect: isDragging ? 'none' : 'auto',
