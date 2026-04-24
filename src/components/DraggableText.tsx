@@ -64,14 +64,15 @@ export default function DraggableText({ item, isActive, onSelect, onUpdate, onDe
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (isActive && onDelete) {
-      if (e.key === 'Delete' || e.key === 'Backspace') {
-        e.preventDefault();
-        onDelete(id);
-      }
-    }
-  };
+  // Del / Backspace 로컬 처리는 제거 — 전역 리스너가 Delete 만 안전하게 처리한다.
+  // (Backspace 로 실수 삭제되는 현상 방지)
+
+  const resolvedLineHeight =
+    style.lineHeight === undefined
+      ? 1.2
+      : style.lineHeight >= 4
+        ? `${style.lineHeight}px`
+        : style.lineHeight;
 
   const textStyle: React.CSSProperties = {
     fontSize: `${style.fontSize}px`, 
@@ -80,18 +81,21 @@ export default function DraggableText({ item, isActive, onSelect, onUpdate, onDe
     fontWeight: style.fontWeight as React.CSSProperties['fontWeight'], 
     textAlign: style.textAlign as React.CSSProperties['textAlign'],
     letterSpacing: style.letterSpacing !== undefined ? `${style.letterSpacing}px` : undefined,
-    lineHeight: style.lineHeight !== undefined ? style.lineHeight : 1.2,
+    lineHeight: resolvedLineHeight,
     backgroundColor: style.backgroundColor || 'transparent',
     borderRadius: style.isPill ? '999px' : '4px',
-    padding: style.isPill ? '10px 28px' : '0',
-    fontFamily: 'var(--font-sans)',
+    // Figma 가이드 기준(상하 8.5, 좌 34.13, 우 34.13)
+    //   글자가 길어지면 버튼 너비는 자동으로 따라 커짐 (width 고정 없음)
+    padding: style.isPill ? '8.5px 34.13px' : '0',
+    fontFamily: style.fontFamily || 'var(--font-sans)',
+    textShadow: style.textShadow || undefined,
     pointerEvents: isPreview ? 'none' : 'auto',
     width: style.width === 'auto' || !style.width ? 'auto' : `${style.width}px`
   };
 
   if (isPreview) {
     return (
-      <div style={{ position: 'absolute', left: `${position.x}px`, top: `${position.y}px`, zIndex: 1, ...textStyle }}>
+      <div style={{ position: 'absolute', left: `${position.x}px`, top: `${position.y}px`, zIndex: 2, ...textStyle }}>
         {text}
       </div>
     );
@@ -100,8 +104,6 @@ export default function DraggableText({ item, isActive, onSelect, onUpdate, onDe
   return (
     <div
       ref={dragRef}
-      tabIndex={0}
-      onKeyDown={handleKeyDown}
       style={{
         position: 'absolute',
         left: `${position.x}px`,

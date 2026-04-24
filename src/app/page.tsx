@@ -159,7 +159,7 @@ export default function Home() {
             <Link href="/main-visual" style={linkReset}>
               <button style={btnSecondary}>
                 <span style={{ fontSize: '14px' }}>＋</span>
-                메인비주얼
+                자사몰 비주얼
               </button>
             </Link>
           </div>
@@ -201,7 +201,7 @@ export default function Home() {
         >
           <MetricCard label="전체 항목" value={stats.total} accent="#111827" />
           <MetricCard label="이벤트 페이지" value={stats.eventCount} accent="#2563eb" />
-          <MetricCard label="메인비주얼 배너" value={stats.bannerCount} accent="#7c3aed" />
+          <MetricCard label="자사몰 비주얼" value={stats.bannerCount} accent="#7c3aed" />
           <MetricCard label="최근 7일" value={stats.recent} accent="#059669" />
         </div>
 
@@ -224,7 +224,7 @@ export default function Home() {
           />
           <QuickAction
             href="/main-visual"
-            title="메인비주얼 제작기"
+            title="자사몰 비주얼 제작기"
             description="웹 1920×680 / 모바일 800×907 배너를 원본 해상도로"
             icon="🎨"
             color="#7c3aed"
@@ -266,7 +266,7 @@ export default function Home() {
                 onClick={() => setTab('banner')}
                 style={segmentBtn(tab === 'banner')}
               >
-                메인비주얼 · {stats.bannerCount}
+                자사몰 비주얼 · {stats.bannerCount}
               </button>
             </div>
 
@@ -333,7 +333,7 @@ export default function Home() {
                     ? '검색 결과가 없습니다'
                     : tab === 'event'
                     ? '저장된 이벤트 페이지가 없습니다'
-                    : '저장된 메인비주얼이 없습니다'
+                    : '저장된 자사몰 비주얼이 없습니다'
                 }
                 description={
                   search
@@ -581,7 +581,7 @@ function Card({
             backdropFilter: 'blur(8px)',
           }}
         >
-          {tab === 'event' ? '이벤트 페이지' : '메인비주얼'}
+          {tab === 'event' ? '이벤트 페이지' : '자사몰 비주얼'}
         </span>
       </div>
 

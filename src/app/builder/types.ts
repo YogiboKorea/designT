@@ -4,10 +4,20 @@ export interface TextStyle {
   fontWeight: string | number;
   textAlign?: 'left' | 'center' | 'right';
   letterSpacing?: number;
+  /**
+   * 라인 하이트.
+   *  - 값이 4 미만이면 배수 (e.g. 1.2, 1.5)
+   *  - 값이 4 이상이면 절대 픽셀 (e.g. 60, 100)
+   * 렌더링 단에서 자동 분기 — DraggableText 및 main-visual 캡쳐 캔버스 참고.
+   */
   lineHeight?: number;
   backgroundColor?: string;
   width?: number | 'auto';
   isPill?: boolean;
+  /** CSS font-family. 지정 없으면 전역 Pretendard. */
+  fontFamily?: string;
+  /** CSS text-shadow. e.g. "0 2px 10px #BCB29B" */
+  textShadow?: string;
 }
 
 export interface TextItem {
