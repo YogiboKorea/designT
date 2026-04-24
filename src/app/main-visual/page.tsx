@@ -138,6 +138,36 @@ export default function MainVisualBuilderPage() {
   }, [undo, redo]);
 
   const [activeTextId, setActiveTextId] = useState<string | null>(null);
+  const [eventId, setEventId] = useState<string | null>(null);
+  const [isInitializing, setIsInitializing] = useState(true);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get('id');
+    if (id) {
+      setEventId(id);
+      fetch(`/api/events/${id}`)
+        .then((r) => r.json())
+        .then((d) => {
+          if (d.success && d.data) {
+            setTitle(d.data.title || '');
+            const sections = d.data.sections;
+            if (sections && sections.length > 0 && sections[0].type === 'mainVisualPair') {
+              const { web, mobile } = sections[0];
+              setState((prev) => ({
+                web: web ? { ...prev.web, ...web } : prev.web,
+                mobile: mobile ? { ...prev.mobile, ...mobile } : prev.mobile,
+              }));
+              lastSnapshotRef.current = Date.now();
+            }
+          }
+        })
+        .finally(() => setIsInitializing(false));
+    } else {
+      setIsInitializing(false);
+    }
+  }, []);
 
   const [isSaving, setIsSaving] = useState(false);
   const [isPreviewing, setIsPreviewing] = useState(false);
@@ -1111,15 +1141,13 @@ export default function MainVisualBuilderPage() {
           {
             type: 'mainVisualPair',
             web: {
-              bgColor: state.web.bgColor,
+              ...state.web,
               bgImage: uploaded.web || state.web.bgImage,
-              texts: state.web.texts,
               imageUrl: uploaded.web || '',
             },
             mobile: {
-              bgColor: state.mobile.bgColor,
+              ...state.mobile,
               bgImage: uploaded.mobile || state.mobile.bgImage,
-              texts: state.mobile.texts,
               imageUrl: uploaded.mobile || '',
             },
           },
@@ -1129,8 +1157,10 @@ export default function MainVisualBuilderPage() {
 
       let dbSaved = false;
       try {
-        const res = await fetch('/api/events', {
-          method: 'POST',
+        const url = eventId ? `/api/events/${eventId}` : '/api/events';
+        const method = eventId ? 'PUT' : 'POST';
+        const res = await fetch(url, {
+          method,
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         });
@@ -1193,6 +1223,14 @@ export default function MainVisualBuilderPage() {
   // --------------------------------------------------------------------------
   // 렌더
   // --------------------------------------------------------------------------
+  if (isInitializing) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f4f5f7' }}>
+        데이터를 불러오는 중입니다...
+      </div>
+    );
+  }
+
   return (
     <div style={{ minHeight: '100vh', background: '#f4f5f7', fontFamily: 'var(--font-sans)' }}>
       {/* AI 진행 상황 토스트 — 하단 중앙 고정 */}
