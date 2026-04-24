@@ -1741,8 +1741,8 @@ export default function MainVisualBuilderPage() {
                 ))}
               </select>
 
-              <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
-                <div style={{ flex: 1 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>
+                <div>
                   <label style={fieldLabel}>글자색</label>
                   <input
                     type="color"
@@ -1751,7 +1751,7 @@ export default function MainVisualBuilderPage() {
                     style={{ width: '100%', height: '32px', border: '1px solid #d1d5db', borderRadius: '6px' }}
                   />
                 </div>
-                <div style={{ flex: 1 }}>
+                <div>
                   <label style={fieldLabel}>배경색</label>
                   <input
                     type="color"
@@ -1759,24 +1759,49 @@ export default function MainVisualBuilderPage() {
                     onChange={(e) => handleTextStyleChange({ backgroundColor: e.target.value })}
                     style={{ width: '100%', height: '32px', border: '1px solid #d1d5db', borderRadius: '6px' }}
                   />
+                  <button
+                    onClick={() => handleTextStyleChange({ backgroundColor: 'transparent' })}
+                    style={{
+                      width: '100%',
+                      padding: '4px',
+                      fontSize: '11px',
+                      border: '1px solid #d1d5db',
+                      borderRadius: '6px',
+                      background: '#fff',
+                      cursor: 'pointer',
+                      marginTop: '4px',
+                    }}
+                  >
+                    🚫 배경 투명
+                  </button>
+                </div>
+                <div style={{ gridColumn: '1 / -1', marginTop: '4px' }}>
+                  <label style={fieldLabel}>그림자색 (Shadow)</label>
+                  <div style={{ display: 'flex' }}>
+                    <input
+                      type="color"
+                      value={activeText.style.textShadow?.match(/#[0-9a-fA-F]+/i)?.[0] || '#000000'}
+                      onChange={(e) => handleTextStyleChange({ textShadow: `0 2px 10px ${e.target.value}` })}
+                      style={{ width: '100%', height: '32px', border: '1px solid #d1d5db', borderRight: 'none', borderRadius: '6px 0 0 6px', padding: 0 }}
+                    />
+                    <button
+                      onClick={() => handleTextStyleChange({ textShadow: undefined })}
+                      style={{
+                        padding: '0 12px',
+                        fontSize: '12px',
+                        border: '1px solid #d1d5db',
+                        borderRadius: '0 6px 6px 0',
+                        background: '#fff',
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap'
+                      }}
+                      title="그림자 제거"
+                    >
+                      🚫 제거
+                    </button>
+                  </div>
                 </div>
               </div>
-
-              <button
-                onClick={() => handleTextStyleChange({ backgroundColor: 'transparent' })}
-                style={{
-                  width: '100%',
-                  padding: '6px',
-                  fontSize: '12px',
-                  border: '1px solid #d1d5db',
-                  borderRadius: '6px',
-                  background: '#fff',
-                  cursor: 'pointer',
-                  marginBottom: '12px',
-                }}
-              >
-                배경 투명
-              </button>
 
               <label style={fieldLabel}>정렬</label>
               <div style={{ display: 'flex', gap: '6px', marginBottom: '12px' }}>
