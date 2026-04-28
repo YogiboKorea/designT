@@ -101,9 +101,25 @@ export default function ProductDescriptionBuilder({ data, onChange, isPreview = 
             <div className="product-card-img">
               {p.image ? <img src={p.image} alt={p.name} /> : '이미지 없음'}
             </div>
-            {p.name && p.name.trim() !== '' && (
+            {((p.name && p.name.trim() !== '') || (p.subtitle && p.subtitle.trim() !== '')) && (
               <div className="product-card-body">
-                <div className="product-card-name" style={{ color: '#1f2937' }}>{p.name}</div>
+                {p.name && p.name.trim() !== '' && (
+                  <div className="product-card-name" style={{ color: '#1f2937' }}>{p.name}</div>
+                )}
+                {p.subtitle && p.subtitle.trim() !== '' && (
+                  <div
+                    className="product-card-subtitle"
+                    style={{
+                      color: '#6b7280',
+                      fontSize: '13px',
+                      fontWeight: 400,
+                      marginTop: '4px',
+                      lineHeight: 1.4,
+                    }}
+                  >
+                    {p.subtitle}
+                  </div>
+                )}
               </div>
             )}
           </div>
