@@ -626,6 +626,83 @@ const TPL_SUMMER: MainTemplate = {
   ],
 };
 
+// ════════════════════════════════════════════════════════════════
+// 6. 📷 미니멀 — 사진 + 글자만 (데코 없음)
+//    이미지 한 장에 텍스트 슬롯(상단/중앙/하단)만 잡혀있는 구조.
+//    배경 사진이 주인공이고, MD 는 글자 3줄만 채우면 됨.
+// ════════════════════════════════════════════════════════════════
+const TPL_MINIMAL: MainTemplate = {
+  id: 'minimal',
+  name: '📷 미니멀 (사진+글자)',
+  description: '사진 한 장 + 텍스트 슬롯 3개. 데코 없는 깔끔한 구성',
+  height: 500,
+  // 사진이 없을 때 보이는 기본 배경 (옅은 그레이) — 사진 올리면 사진이 덮음
+  background: '#1f2937',
+  thumbnail: `<svg viewBox="0 0 100 60" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="mini-bg" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#475569"/>
+        <stop offset="1" stop-color="#1e293b"/>
+      </linearGradient>
+    </defs>
+    <rect width="100" height="60" fill="url(#mini-bg)"/>
+    <text x="50" y="14" text-anchor="middle" fill="#fff" font-size="3.5" font-weight="500" letter-spacing="1">SUBTITLE LINE</text>
+    <text x="50" y="32" text-anchor="middle" fill="#fff" font-size="11" font-weight="800">HEADLINE</text>
+    <text x="50" y="50" text-anchor="middle" fill="#fff" font-size="3.5" font-weight="500">2026.04.28 — 05.10</text>
+  </svg>`,
+  variables: [],
+  texts: [
+    // 상단 — 보조 카피
+    {
+      id: sid('text', 1),
+      text: '카테고리 / 한 줄 카피',
+      position: { x: 100, y: 80 },
+      style: {
+        color: '#ffffff',
+        fontSize: 18,
+        fontWeight: 500,
+        textAlign: 'center',
+        width: 600,
+        letterSpacing: 4,
+        textShadow: '0 2px 8px rgba(0,0,0,0.5)',
+      },
+    },
+    // 중앙 — 메인 헤드라인
+    {
+      id: sid('text', 2),
+      text: '메인 타이틀',
+      position: { x: 50, y: 180 },
+      style: {
+        color: '#ffffff',
+        fontSize: 80,
+        fontWeight: 800,
+        textAlign: 'center',
+        width: 700,
+        letterSpacing: -2,
+        lineHeight: 1.1,
+        textShadow: '0 4px 20px rgba(0,0,0,0.5)',
+      },
+    },
+    // 하단 — 기간/세부 정보
+    {
+      id: sid('text', 3),
+      text: '2026.04.28 — 2026.05.10',
+      position: { x: 100, y: 410 },
+      style: {
+        color: '#ffffff',
+        fontSize: 18,
+        fontWeight: 500,
+        textAlign: 'center',
+        width: 600,
+        letterSpacing: 3,
+        textShadow: '0 2px 8px rgba(0,0,0,0.5)',
+      },
+    },
+  ],
+  // 스티커 없음 — 데코 일체 없음
+  stickers: [],
+};
+
 // ────────────────────────────────────────────────────────────────
 export const MAIN_VISUAL_TEMPLATES: MainTemplate[] = [
   TPL_FLASH_DEAL,
@@ -633,6 +710,7 @@ export const MAIN_VISUAL_TEMPLATES: MainTemplate[] = [
   TPL_BLACK_FRIDAY,
   TPL_NEW_LAUNCH,
   TPL_SUMMER,
+  TPL_MINIMAL,
 ];
 
 export const getTemplateById = (id: string): MainTemplate | undefined =>

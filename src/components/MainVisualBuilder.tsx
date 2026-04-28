@@ -62,8 +62,40 @@ export default function MainVisualBuilder({ data, onChange, isPreview = false, a
         <img src={bgImage} style={{ width: '100%', display: 'block', position: 'relative', zIndex: 0 }} alt="Background" />
       )}
 
-      {/* 템플릿 적용 + 배경 이미지: 반투명 오버레이로 사진을 깔고, 그 위에 어두운 그라데이션을 추가해서 텍스트 가독성 향상 */}
-      {hasTemplate && bgImage && (
+      {/* 템플릿 적용 + 배경 이미지
+       *  · 미니멀 템플릿(minimal): 사진이 주인공 → 풀 불투명, 가독성용 그라데이션만 약하게
+       *  · 그 외 템플릿: 템플릿 톤이 주인공 → 사진은 반투명으로 깔고 어두운 오버레이 강하게
+       */}
+      {hasTemplate && bgImage && templateId === 'minimal' && (
+        <>
+          <img
+            src={bgImage}
+            alt="Background"
+            style={{
+              position: 'absolute',
+              inset: 0,
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              zIndex: 0,
+              pointerEvents: 'none',
+            }}
+          />
+          {/* 텍스트 가독성 — 약한 그라데이션만 (사진은 거의 그대로) */}
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              background:
+                'linear-gradient(180deg, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0) 35%, rgba(0,0,0,0) 65%, rgba(0,0,0,0.25) 100%)',
+              zIndex: 0,
+              pointerEvents: 'none',
+            }}
+          />
+        </>
+      )}
+
+      {hasTemplate && bgImage && templateId !== 'minimal' && (
         <>
           <img
             src={bgImage}

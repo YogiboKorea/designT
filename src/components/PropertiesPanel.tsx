@@ -2,6 +2,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { SectionData, TextItem, CouponItem, ProductItem, StickerItem } from '../app/builder/types';
 import { MAIN_VISUAL_TEMPLATES, getTemplateById } from '../data/main-visual-templates';
+import { COUPON_TEMPLATES, getCouponTemplateById } from '../data/coupon-templates';
+import { PRODUCT_TEMPLATES, getProductTemplateById } from '../data/product-templates';
 import { STICKER_LIBRARY, STICKER_CATEGORIES, StickerCategory, instantiateSticker } from '../data/sticker-library';
 
 interface PropertiesPanelProps {
@@ -101,6 +103,97 @@ export default function PropertiesPanel({ activeSection, onUpdate, activeTextId,
       texts: [],
       stickers: [],
       templateVars: {},
+    });
+  };
+
+  // ─────────────────────────────────────────────────────────────────
+  //  🎨 쿠폰 템플릿 시스템
+  //     · COUPON_TEMPLATES 에서 프리셋을 골라 한 번에 적용
+  //     · 디자인 속성(색상·shape·border·배경)은 잠금
+  //     · MD 는 헤더 텍스트와 쿠폰의 라벨/할인내역/링크만 수정
+  // ─────────────────────────────────────────────────────────────────
+
+  const handleApplyCouponTemplate = (
+    data: Extract<SectionData, { type: 'coupon' }>,
+    templateId: string,
+  ) => {
+    const template = getCouponTemplateById(templateId);
+    if (!template) return;
+    const stamp = Date.now().toString();
+    const newTexts: TextItem[] = template.texts.map((t, i) => ({
+      ...t,
+      id: `${stamp}-t${i}`,
+      style: { ...t.style },
+      position: { ...t.position },
+    }));
+    const newCoupons: CouponItem[] = template.coupons.map((c, i) => ({
+      ...c,
+      id: `${stamp}-c${i}`,
+    }));
+    onUpdate({
+      ...data,
+      templateId,
+      bgColor: template.bgColor,
+      bgGradient: template.bgGradient,
+      texts: newTexts,
+      coupons: newCoupons,
+    });
+  };
+
+  const handleClearCouponTemplate = (data: Extract<SectionData, { type: 'coupon' }>) => {
+    onUpdate({
+      ...data,
+      templateId: undefined,
+      bgColor: '#ffffff',
+      bgGradient: undefined,
+      texts: [],
+      coupons: [],
+    });
+  };
+
+  // ─────────────────────────────────────────────────────────────────
+  //  🎨 상품 템플릿 시스템
+  // ─────────────────────────────────────────────────────────────────
+
+  const handleApplyProductTemplate = (
+    data: Extract<SectionData, { type: 'product' }>,
+    templateId: string,
+  ) => {
+    const template = getProductTemplateById(templateId);
+    if (!template) return;
+    const stamp = Date.now().toString();
+    const newTexts: TextItem[] = template.texts.map((t, i) => ({
+      ...t,
+      id: `${stamp}-t${i}`,
+      style: { ...t.style },
+      position: { ...t.position },
+    }));
+    const newProducts: ProductItem[] = template.products.map((p, i) => ({
+      ...p,
+      id: `${stamp}-p${i}`,
+    }));
+    onUpdate({
+      ...data,
+      templateId,
+      layout: template.layout,
+      columns: template.columns,
+      bgColor: template.bgColor,
+      bgGradient: template.bgGradient,
+      paddingTop: template.paddingTop,
+      paddingBottom: template.paddingBottom,
+      texts: newTexts,
+      products: newProducts,
+    });
+  };
+
+  const handleClearProductTemplate = (data: Extract<SectionData, { type: 'product' }>) => {
+    onUpdate({
+      ...data,
+      templateId: undefined,
+      bgColor: undefined,
+      bgGradient: undefined,
+      texts: [],
+      products: [],
     });
   };
 
@@ -709,11 +802,16 @@ export default function PropertiesPanel({ activeSection, onUpdate, activeTextId,
           )}
         </div>
 
-        {/* ━━━ 배경 이미지 (템플릿 적용 시 보조용 / 미적용 시 메인용) ━━━ */}
+        {/* ━━━ 배경 이미지 (템플릿 적용 시 보조용 / 미적용 시 메인용 / 미니멀 템플릿일 땐 필수) ━━━ */}
         <div className="prop-group">
           <div className="prop-group-title">
             배경 이미지
-            {currentTemplate && (
+            {currentTemplate && currentTemplate.id === 'minimal' && (
+              <span style={{ fontSize: 10, fontWeight: 600, color: '#dc2626', marginLeft: 6 }}>
+                (필수 — 사진이 메인이 됩니다)
+              </span>
+            )}
+            {currentTemplate && currentTemplate.id !== 'minimal' && (
               <span style={{ fontSize: 10, fontWeight: 400, color: '#9ca3af', marginLeft: 6 }}>
                 (선택사항 — 템플릿 위에 반투명 오버레이)
               </span>
@@ -865,54 +963,186 @@ export default function PropertiesPanel({ activeSection, onUpdate, activeTextId,
     const handleUpdateCoupon = (id: string, field: keyof CouponItem, val: string) => {
       onUpdate({ ...data, coupons: data.coupons.map(c => c.id === id ? { ...c, [field]: val } : c) });
     };
+    const currentTemplate = data.templateId ? getCouponTemplateById(data.templateId) : undefined;
+
     return (
       <div>
-        {renderDraggableTextList(data)}
+        {/* ━━━ 🎨 쿠폰 디자인 템플릿 ━━━ */}
         <div className="prop-group">
-          <div className="prop-group-title">쿠폰 공통</div>
-          <div className="field-row">
-            <div className="field"><label>배경 색상</label><input type="color" value={data.bgColor} onChange={e => onUpdate({ ...data, bgColor: e.target.value })} /></div>
-            <FileUploader label="배경 이미지" imageUrl={data.bgImage} onUpload={url => onUpdate({ ...data, bgImage: url })} onClear={() => onUpdate({ ...data, bgImage: '' })} />
-          </div>
-        </div>
-        <div className="prop-group">
-          <div className="prop-group-title">개별 쿠폰 설정</div>
-          <button className="add-item-btn" onClick={() => onUpdate({ ...data, coupons: [...data.coupons, { id: Date.now().toString(), label: '🎟️ 특별 쿠폰', name: '신규 쿠폰', link: '#' }] })}>+ 쿠폰 추가</button>
-          <div className="item-list" style={{ marginTop: '10px' }}>
-            {data.coupons.map((c, idx) => (
+          <div className="prop-group-title">🎨 쿠폰 디자인 템플릿</div>
+
+          {currentTemplate ? (
+            <div>
               <div
-                className="item-card"
-                key={c.id}
-                ref={el => { itemRefs.current[c.id] = el; }}
-                style={{ border: activeItemId === c.id ? '2px solid #2563eb' : '1px solid #e5e7eb', transition: 'border 0.2s' }}
+                style={{
+                  padding: '10px 12px',
+                  background: '#eef2ff',
+                  border: '1px solid #c7d2fe',
+                  borderRadius: 8,
+                  marginBottom: 10,
+                }}
               >
-                <div className="item-card-header"><span>{idx + 1}번 쿠폰</span><button className="icon-btn danger" onClick={() => onUpdate({ ...data, coupons: data.coupons.filter(x => x.id !== c.id) })}>✕</button></div>
-                <div className="slider-container" style={{ marginBottom: '12px' }}>
-                  <div className="slider-label" style={{ fontSize: '12px', fontWeight: 600, color: '#374151' }}>쿠폰 너비: {c.couponWidth ?? 400}px</div>
-                  <input type="range" min="200" max="780" value={c.couponWidth ?? 400} onChange={e => onUpdate({ ...data, coupons: data.coupons.map(x => x.id === c.id ? { ...x, couponWidth: parseInt(e.target.value) } : x) })} className="custom-slider" />
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#3730a3' }}>
+                  {currentTemplate.name}
                 </div>
-                <div className="field"><label>라벨 문구</label><input type="text" value={c.label ?? '🎟️ SPECIAL COUPON'} onChange={e => handleUpdateCoupon(c.id, 'label', e.target.value)} /></div>
-                <div className="field"><label>할인 내역</label><input type="text" value={c.name} onChange={e => handleUpdateCoupon(c.id, 'name', e.target.value)} /></div>
-                <div className="color-picker-row" style={{ marginTop: '12px' }}>
-                  <div className="color-picker-col">
-                    <div className="color-picker-label" style={{fontSize: '12px'}}>라벨 색상</div>
-                    <input type="color" value={c.labelColor || '#ec4899'} onChange={e => handleUpdateCoupon(c.id, 'labelColor', e.target.value)} className="color-picker-input" />
-                  </div>
-                  <div className="color-picker-col">
-                    <div className="color-picker-label" style={{fontSize: '12px'}}>내용 색상</div>
-                    <input type="color" value={c.nameColor || '#111827'} onChange={e => handleUpdateCoupon(c.id, 'nameColor', e.target.value)} className="color-picker-input" />
-                  </div>
-                </div>
-                <div className="color-picker-row">
-                  <div className="color-picker-col">
-                    <div className="color-picker-label" style={{fontSize: '12px'}}>쿠폰 배경색</div>
-                    <input type="color" value={c.couponBgColor || '#ffffff'} onChange={e => handleUpdateCoupon(c.id, 'couponBgColor', e.target.value)} className="color-picker-input" />
-                  </div>
+                <div style={{ fontSize: 11, color: '#6366f1', marginTop: 2 }}>
+                  {currentTemplate.description}
                 </div>
               </div>
-            ))}
-          </div>
+
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button
+                  onClick={() => onUpdate({ ...data, templateId: undefined })}
+                  style={{
+                    flex: 1,
+                    padding: '6px 8px',
+                    fontSize: 12,
+                    background: '#f3f4f6',
+                    border: '1px solid #d1d5db',
+                    borderRadius: 6,
+                    cursor: 'pointer',
+                  }}
+                >
+                  다른 템플릿 선택
+                </button>
+                <button
+                  onClick={() => {
+                    if (confirm('템플릿을 해제하면 쿠폰과 텍스트가 모두 삭제됩니다. 진행할까요?')) {
+                      handleClearCouponTemplate(data);
+                    }
+                  }}
+                  style={{
+                    padding: '6px 10px',
+                    fontSize: 12,
+                    background: '#fef2f2',
+                    color: '#991b1b',
+                    border: '1px solid #fecaca',
+                    borderRadius: 6,
+                    cursor: 'pointer',
+                  }}
+                >
+                  해제
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <p style={{ margin: '0 0 8px', fontSize: 11, color: '#6b7280', lineHeight: 1.5 }}>
+                검증된 디자인 템플릿을 선택하세요.<br />
+                선택 후 텍스트와 쿠폰 내용만 수정할 수 있습니다.
+              </p>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                {COUPON_TEMPLATES.map((tpl) => (
+                  <button
+                    key={tpl.id}
+                    onClick={() => handleApplyCouponTemplate(data, tpl.id)}
+                    style={{
+                      padding: 0,
+                      background: '#fff',
+                      border: '1px solid #e5e7eb',
+                      borderRadius: 8,
+                      cursor: 'pointer',
+                      overflow: 'hidden',
+                      textAlign: 'left',
+                      transition: 'all 0.15s',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = '#6366f1';
+                      e.currentTarget.style.boxShadow = '0 4px 12px rgba(99,102,241,0.2)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = '#e5e7eb';
+                      e.currentTarget.style.boxShadow = 'none';
+                    }}
+                  >
+                    <div
+                      style={{ width: '100%', aspectRatio: '5/3', background: '#f9fafb' }}
+                      dangerouslySetInnerHTML={{ __html: tpl.thumbnail }}
+                    />
+                    <div style={{ padding: '6px 8px' }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: '#111827' }}>
+                        {tpl.name}
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
+
+        {/* 템플릿 적용 시: 헤더 텍스트 + 쿠폰 내용만 노출 */}
+        {currentTemplate && (
+          <>
+            {renderDraggableTextList(data)}
+
+            <div className="prop-group">
+              <div className="prop-group-title">쿠폰 내용</div>
+              <p style={{ margin: '0 0 10px', fontSize: 11, color: '#6b7280', lineHeight: 1.5 }}>
+                라벨, 할인 내역, 링크만 수정할 수 있습니다.<br />
+                디자인(색상·모양·배경)은 템플릿이 결정합니다.
+              </p>
+              <button
+                className="add-item-btn"
+                onClick={() => {
+                  // 템플릿의 첫 번째 쿠폰을 베이스로 새 쿠폰 추가 (디자인 속성 그대로)
+                  const base = currentTemplate.coupons[0];
+                  const newCoupon: CouponItem = base
+                    ? { ...base, id: Date.now().toString(), label: '🎟️ NEW COUPON', name: '신규 쿠폰', link: '#' }
+                    : { id: Date.now().toString(), label: '🎟️ NEW COUPON', name: '신규 쿠폰', link: '#' };
+                  onUpdate({ ...data, coupons: [...data.coupons, newCoupon] });
+                }}
+              >
+                + 쿠폰 추가
+              </button>
+              <div className="item-list" style={{ marginTop: 10 }}>
+                {data.coupons.map((c, idx) => (
+                  <div
+                    className="item-card"
+                    key={c.id}
+                    ref={(el) => { itemRefs.current[c.id] = el; }}
+                    style={{ border: activeItemId === c.id ? '2px solid #2563eb' : '1px solid #e5e7eb', transition: 'border 0.2s' }}
+                  >
+                    <div className="item-card-header">
+                      <span>{idx + 1}번 쿠폰</span>
+                      <button
+                        className="icon-btn danger"
+                        onClick={() => onUpdate({ ...data, coupons: data.coupons.filter((x) => x.id !== c.id) })}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                    <div className="field">
+                      <label>라벨 문구</label>
+                      <input
+                        type="text"
+                        value={c.label ?? '🎟️ SPECIAL COUPON'}
+                        onChange={(e) => handleUpdateCoupon(c.id, 'label', e.target.value)}
+                      />
+                    </div>
+                    <div className="field">
+                      <label>할인 내역</label>
+                      <input
+                        type="text"
+                        value={c.name}
+                        onChange={(e) => handleUpdateCoupon(c.id, 'name', e.target.value)}
+                      />
+                    </div>
+                    <div className="field">
+                      <label>다운로드 링크</label>
+                      <input
+                        type="text"
+                        value={c.link}
+                        placeholder="https://..."
+                        onChange={(e) => handleUpdateCoupon(c.id, 'link', e.target.value)}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
       </div>
     );
   };
@@ -924,119 +1154,274 @@ export default function PropertiesPanel({ activeSection, onUpdate, activeTextId,
     const handleUpdateProduct = (id: string, field: keyof ProductItem, val: any) => {
       onUpdate({ ...data, products: data.products.map(p => p.id === id ? { ...p, [field]: val } : p) });
     };
+    const currentTemplate = data.templateId ? getProductTemplateById(data.templateId) : undefined;
+
     return (
       <div>
-        {renderDraggableTextList(data)}
+        {/* ━━━ 🎨 상품 디자인 템플릿 ━━━ */}
         <div className="prop-group">
-          <div className="prop-group-title">섹션 여백</div>
-          <div className="slider-container">
-            <div className="slider-label">상단 여백: {data.paddingTop ?? 80}px</div>
-            <input type="range" min="20" max="200" value={data.paddingTop ?? 80} onChange={e => onUpdate({ ...data, paddingTop: parseInt(e.target.value) })} className="custom-slider" />
-          </div>
-          <div className="slider-container">
-            <div className="slider-label">하단 여백: {data.paddingBottom ?? 50}px</div>
-            <input type="range" min="20" max="200" value={data.paddingBottom ?? 50} onChange={e => onUpdate({ ...data, paddingBottom: parseInt(e.target.value) })} className="custom-slider" />
-          </div>
-        </div>
-        <div className="prop-group">
-          <div className="prop-group-title">레이아웃</div>
-          <div className="field">
-            <label>그리드 방식</label>
-            <div className="template-grid" style={{ marginBottom: '10px' }}>
-              <button className={`template-btn ${data.layout==='uniform'?'active':''}`} onClick={() => onUpdate({ ...data, layout: 'uniform'})}>기본 격자</button>
-              <button className={`template-btn ${data.layout==='featured'?'active':''}`} onClick={() => onUpdate({ ...data, layout: 'featured'})}>강조형 격자</button>
-            </div>
-            {data.layout === 'uniform' && (
-              <div className="align-grid">
-                {[1,2,3].map(c => (
-                  <button key={c} className={`align-btn ${data.columns===c?'active':''}`} onClick={() => onUpdate({ ...data, columns: c as 1|2|3 })}>{c}열</button>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-        <div className="prop-group">
-          <div className="prop-group-title">상품 리스트</div>
-          <button className="add-item-btn" onClick={() => onUpdate({ ...data, products: [...data.products, { id: Date.now().toString(), name: '신규 상품', discount: 0, image: '', badge: 'none' }] })}>+ 상품 추가</button>
-          <div className="item-list" style={{ marginTop: '10px' }}>
-            {data.products.map((p, idx) => (
+          <div className="prop-group-title">🎨 상품 디자인 템플릿</div>
+
+          {currentTemplate ? (
+            <div>
               <div
-                className="item-card"
-                key={p.id}
-                ref={el => { itemRefs.current[p.id] = el; }}
-                style={{ border: activeItemId === p.id ? '2px solid #2563eb' : '1px solid #e5e7eb', transition: 'border 0.2s' }}
+                style={{
+                  padding: '10px 12px',
+                  background: '#eef2ff',
+                  border: '1px solid #c7d2fe',
+                  borderRadius: 8,
+                  marginBottom: 10,
+                }}
               >
-                <div className="item-card-header"><span>상품 {idx + 1}</span><button className="icon-btn danger" onClick={() => onUpdate({ ...data, products: data.products.filter(x => x.id !== p.id) })}>✕</button></div>
-                <FileUploader label="상품 이미지" imageUrl={p.image} onUpload={url => handleUpdateProduct(p.id, 'image', url)} onClear={() => handleUpdateProduct(p.id, 'image', '')} />
-                <div className="field"><label>상품명</label><input type="text" value={p.name} onChange={e => handleUpdateProduct(p.id, 'name', e.target.value)} /></div>
-                <div className="field">
-                  <label>서브 설명 <span style={{ color: '#9ca3af', fontSize: 11, fontWeight: 400 }}>(선택)</span></label>
-                  <input
-                    type="text"
-                    value={p.subtitle ?? ''}
-                    placeholder="예: 슬림한 1인용 빈백, 최대 적재 50kg"
-                    onChange={e => handleUpdateProduct(p.id, 'subtitle', e.target.value)}
-                  />
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#3730a3' }}>
+                  {currentTemplate.name}
                 </div>
+                <div style={{ fontSize: 11, color: '#6366f1', marginTop: 2 }}>
+                  {currentTemplate.description}
+                </div>
+              </div>
 
-                <div className="field-row">
-                  <div className="field"><label>할인율 (%)</label><input type="number" min="0" max="99" value={p.discount} onChange={e => handleUpdateProduct(p.id, 'discount', parseInt(e.target.value) || 0)} /></div>
-                  <div className="field">
-                    <label>할인 위치</label>
-                    <div style={{ display: 'flex', gap: '4px' }}>
-                      {(['right','left'] as const).map(pos => (
-                        <button key={pos} onClick={() => handleUpdateProduct(p.id, 'discountPosition', pos)}
-                          style={{ flex: 1, padding: '5px', fontSize: '11px', fontWeight: 700, borderRadius: '5px', border: (p.discountPosition ?? 'right') === pos ? '1.5px solid #2563eb' : '1px solid #d1d5db', background: (p.discountPosition ?? 'right') === pos ? '#eff6ff' : 'white', cursor: 'pointer', color: (p.discountPosition ?? 'right') === pos ? '#2563eb' : '#374151' }}>
-                          {pos === 'left' ? '왼쪽' : '오른쪽'}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-                <div className="field">
-                  <label>할인 색상</label>
-                  <input type="color" value={p.discountColor || '#00d280'} onChange={e => handleUpdateProduct(p.id, 'discountColor', e.target.value)} style={{ width: '100%', height: '32px', border: '1px solid #d1d5db', borderRadius: '6px' }} />
-                </div>
-
-                <hr style={{ border: 'none', borderTop: '1px dashed #e5e7eb', margin: '10px 0' }} />
-                <div className="field-row">
-                  <div className="field">
-                    <label>뱃지 종류</label>
-                    <select value={p.badge} onChange={e => handleUpdateProduct(p.id, 'badge', e.target.value)} style={{ padding: '6px', width: '100%', border: '1px solid #d1d5db', borderRadius: '4px', background: 'white' }}>
-                      <option value="none">없음</option>
-                      <option value="best">BEST</option>
-                      <option value="new">NEW</option>
-                      <option value="hot">HOT</option>
-                      <option value="custom">직접입력</option>
-                    </select>
-                  </div>
-                  {p.badge !== 'none' && (
-                    <div className="field">
-                      <label>뱃지 위치</label>
-                      <div style={{ display: 'flex', gap: '4px' }}>
-                        {(['left','right'] as const).map(pos => (
-                          <button key={pos} onClick={() => handleUpdateProduct(p.id, 'badgePosition', pos)}
-                            style={{ flex: 1, padding: '5px', fontSize: '11px', fontWeight: 700, borderRadius: '5px', border: (p.badgePosition ?? 'left') === pos ? '1.5px solid #2563eb' : '1px solid #d1d5db', background: (p.badgePosition ?? 'left') === pos ? '#eff6ff' : 'white', cursor: 'pointer', color: (p.badgePosition ?? 'left') === pos ? '#2563eb' : '#374151' }}>
-                            {pos === 'left' ? '왼쪽' : '오른쪽'}
-                          </button>
-                        ))}
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button
+                  onClick={() => onUpdate({ ...data, templateId: undefined })}
+                  style={{
+                    flex: 1,
+                    padding: '6px 8px',
+                    fontSize: 12,
+                    background: '#f3f4f6',
+                    border: '1px solid #d1d5db',
+                    borderRadius: 6,
+                    cursor: 'pointer',
+                  }}
+                >
+                  다른 템플릿 선택
+                </button>
+                <button
+                  onClick={() => {
+                    if (confirm('템플릿을 해제하면 상품과 텍스트가 모두 삭제됩니다. 진행할까요?')) {
+                      handleClearProductTemplate(data);
+                    }
+                  }}
+                  style={{
+                    padding: '6px 10px',
+                    fontSize: 12,
+                    background: '#fef2f2',
+                    color: '#991b1b',
+                    border: '1px solid #fecaca',
+                    borderRadius: 6,
+                    cursor: 'pointer',
+                  }}
+                >
+                  해제
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <p style={{ margin: '0 0 8px', fontSize: 11, color: '#6b7280', lineHeight: 1.5 }}>
+                검증된 디자인 템플릿을 선택하세요.<br />
+                선택 후 사진·텍스트·뱃지를 수정할 수 있습니다.
+              </p>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                {PRODUCT_TEMPLATES.map((tpl) => (
+                  <button
+                    key={tpl.id}
+                    onClick={() => handleApplyProductTemplate(data, tpl.id)}
+                    style={{
+                      padding: 0,
+                      background: '#fff',
+                      border: '1px solid #e5e7eb',
+                      borderRadius: 8,
+                      cursor: 'pointer',
+                      overflow: 'hidden',
+                      textAlign: 'left',
+                      transition: 'all 0.15s',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = '#6366f1';
+                      e.currentTarget.style.boxShadow = '0 4px 12px rgba(99,102,241,0.2)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = '#e5e7eb';
+                      e.currentTarget.style.boxShadow = 'none';
+                    }}
+                  >
+                    <div
+                      style={{ width: '100%', aspectRatio: '5/3', background: '#f9fafb' }}
+                      dangerouslySetInnerHTML={{ __html: tpl.thumbnail }}
+                    />
+                    <div style={{ padding: '6px 8px' }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: '#111827' }}>
+                        {tpl.name}
                       </div>
                     </div>
-                  )}
-                </div>
-                {p.badge !== 'none' && (
-                  <>
-                    {p.badge === 'custom' && <div className="field"><label>뱃지 문구</label><input type="text" value={p.badgeLabel || ''} placeholder="예: MD추천" onChange={e => handleUpdateProduct(p.id, 'badgeLabel', e.target.value)} /></div>}
-                    <div className="field">
-                      <label>뱃지 색상</label>
-                      <input type="color" value={p.badgeColor || (p.badge === 'best' ? '#ec4899' : p.badge === 'new' ? '#3b82f6' : p.badge === 'hot' ? '#ef4444' : '#10b981')} onChange={e => handleUpdateProduct(p.id, 'badgeColor', e.target.value)} style={{ width: '100%', height: '32px', border: '1px solid #d1d5db', borderRadius: '6px' }} />
-                    </div>
-                  </>
-                )}
+                  </button>
+                ))}
               </div>
-            ))}
-          </div>
+            </div>
+          )}
         </div>
+
+        {/* 템플릿 적용 시: 헤더 텍스트 + 상품 사진/이름만 노출 */}
+        {currentTemplate && (
+          <>
+            {renderDraggableTextList(data)}
+
+            <div className="prop-group">
+              <div className="prop-group-title">상품 정보</div>
+              <p style={{ margin: '0 0 10px', fontSize: 11, color: '#6b7280', lineHeight: 1.5 }}>
+                사진·상품명·서브 설명·할인율·뱃지를 수정할 수 있습니다.<br />
+                레이아웃·배경·여백은 템플릿이 결정합니다.
+              </p>
+              <button
+                className="add-item-btn"
+                onClick={() => {
+                  // 템플릿의 첫 번째 상품을 베이스로 새 상품 추가 (디자인 속성 그대로)
+                  const base = currentTemplate.products[0];
+                  const newProduct: ProductItem = base
+                    ? { ...base, id: Date.now().toString(), name: '신규 상품', image: '' }
+                    : { id: Date.now().toString(), name: '신규 상품', discount: 0, image: '', badge: 'none' };
+                  onUpdate({ ...data, products: [...data.products, newProduct] });
+                }}
+              >
+                + 상품 추가
+              </button>
+              <div className="item-list" style={{ marginTop: 10 }}>
+                {data.products.map((p, idx) => (
+                  <div
+                    className="item-card"
+                    key={p.id}
+                    ref={(el) => { itemRefs.current[p.id] = el; }}
+                    style={{ border: activeItemId === p.id ? '2px solid #2563eb' : '1px solid #e5e7eb', transition: 'border 0.2s' }}
+                  >
+                    <div className="item-card-header">
+                      <span>상품 {idx + 1}</span>
+                      <button
+                        className="icon-btn danger"
+                        onClick={() => onUpdate({ ...data, products: data.products.filter((x) => x.id !== p.id) })}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                    <FileUploader
+                      label="상품 이미지"
+                      imageUrl={p.image}
+                      onUpload={(url) => handleUpdateProduct(p.id, 'image', url)}
+                      onClear={() => handleUpdateProduct(p.id, 'image', '')}
+                    />
+                    <div className="field">
+                      <label>상품명</label>
+                      <input
+                        type="text"
+                        value={p.name}
+                        onChange={(e) => handleUpdateProduct(p.id, 'name', e.target.value)}
+                      />
+                    </div>
+                    <div className="field">
+                      <label>
+                        서브 설명 (상품명 아래 표시){' '}
+                        <span style={{ color: '#9ca3af', fontSize: 11, fontWeight: 400 }}>(선택)</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={p.subtitle ?? ''}
+                        placeholder="예: 슬림한 1인용 빈백, 최대 적재 50kg"
+                        onChange={(e) => handleUpdateProduct(p.id, 'subtitle', e.target.value)}
+                      />
+                    </div>
+                    <div className="field">
+                      <label>할인율 (%)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="99"
+                        value={p.discount}
+                        onChange={(e) => handleUpdateProduct(p.id, 'discount', parseInt(e.target.value) || 0)}
+                      />
+                    </div>
+
+                    {/* ━━━ 뱃지 종류 선택 (없음 / BEST / NEW / HOT / 직접입력) ━━━ */}
+                    <div className="field" style={{ marginTop: 8 }}>
+                      <label>뱃지</label>
+                      <div
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(5, 1fr)',
+                          gap: 4,
+                        }}
+                      >
+                        {(['none', 'best', 'new', 'hot', 'custom'] as const).map((b) => {
+                          const labels: Record<string, string> = {
+                            none: '없음', best: 'BEST', new: 'NEW', hot: 'HOT', custom: '직접',
+                          };
+                          const isActive = p.badge === b;
+                          return (
+                            <button
+                              key={b}
+                              onClick={() => handleUpdateProduct(p.id, 'badge', b)}
+                              style={{
+                                padding: '6px 4px',
+                                fontSize: 11,
+                                fontWeight: 700,
+                                borderRadius: 5,
+                                border: isActive ? '1.5px solid #2563eb' : '1px solid #d1d5db',
+                                background: isActive ? '#eff6ff' : '#fff',
+                                color: isActive ? '#2563eb' : '#374151',
+                                cursor: 'pointer',
+                              }}
+                            >
+                              {labels[b]}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* 직접입력 — 뱃지 문구 */}
+                    {p.badge === 'custom' && (
+                      <div className="field">
+                        <label>뱃지 문구</label>
+                        <input
+                          type="text"
+                          value={p.badgeLabel || ''}
+                          placeholder="예: MD추천"
+                          onChange={(e) => handleUpdateProduct(p.id, 'badgeLabel', e.target.value)}
+                        />
+                      </div>
+                    )}
+
+                    {/* 뱃지 색상 — 뱃지가 있을 때만 노출 */}
+                    {p.badge !== 'none' && (
+                      <div className="field">
+                        <label>뱃지 색상</label>
+                        <input
+                          type="color"
+                          value={
+                            p.badgeColor ||
+                            (p.badge === 'best'
+                              ? '#ec4899'
+                              : p.badge === 'new'
+                                ? '#3b82f6'
+                                : p.badge === 'hot'
+                                  ? '#ef4444'
+                                  : '#10b981')
+                          }
+                          onChange={(e) => handleUpdateProduct(p.id, 'badgeColor', e.target.value)}
+                          style={{
+                            width: '100%',
+                            height: 32,
+                            border: '1px solid #d1d5db',
+                            borderRadius: 6,
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
       </div>
     );
   };
