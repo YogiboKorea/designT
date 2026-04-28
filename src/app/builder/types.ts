@@ -116,6 +116,14 @@ export interface ProductItem {
   badgeLabel?: string;
   badgeColor?: string;
   badgePosition?: 'left' | 'right';
+  /** 상품명 글자 크기 (px) — 미지정 시 기본 16 */
+  nameFontSize?: number;
+  /** 상품명 글자 색상 — 미지정 시 배경에 따라 자동 (다크 배경=밝은 글씨) */
+  nameColor?: string;
+  /** 서브 설명 글자 크기 (px) — 미지정 시 기본 13 */
+  subtitleFontSize?: number;
+  /** 서브 설명 글자 색상 — 미지정 시 배경에 따라 자동 */
+  subtitleColor?: string;
 }
 
 export type SectionData = 

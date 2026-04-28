@@ -28,6 +28,8 @@ interface ShortcutHandlers {
   onDelete?: () => void;
   onCopy?: () => void;
   onPaste?: () => void;
+  /** Escape 또는 single-line input 에서 Enter 누르면 선택 해제 */
+  onEscape?: () => void;
 }
 
 /** 사용자가 텍스트 입력 중인지 검사 — 단축키를 무시해야 할 상황 */
@@ -40,13 +42,50 @@ function isUserTyping(target: EventTarget | null): boolean {
   return false;
 }
 
+/** 현재 포커스가 textarea(여러 줄 입력) 인지 — Enter 키를 통과시켜야 함 */
+function isMultilineInput(target: EventTarget | null): boolean {
+  if (!target) return false;
+  const el = target as HTMLElement;
+  const tag = el.tagName?.toLowerCase();
+  if (tag === 'textarea') return true;
+  if (el.isContentEditable) return true; // contenteditable 도 멀티라인 가능
+  return false;
+}
+
 export function useKeyboardShortcuts(handlers: ShortcutHandlers) {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (isUserTyping(e.target)) return;
+      const typing = isUserTyping(e.target);
+      const key = e.key.toLowerCase();
+
+      // ─── Escape — 항상 작동 (입력 중에도) ────────────────
+      // 입력 중이면 input/element blur 후 선택 해제
+      if (key === 'escape') {
+        if (handlers.onEscape) {
+          if (typing) {
+            (e.target as HTMLElement).blur();
+          }
+          e.preventDefault();
+          handlers.onEscape();
+        }
+        return;
+      }
+
+      // ─── Enter — single-line input 안에서만 선택 해제 처리 ─
+      // textarea/contenteditable 에서는 줄바꿈으로 동작하도록 통과
+      if (key === 'enter' && typing && !isMultilineInput(e.target)) {
+        if (handlers.onEscape) {
+          (e.target as HTMLElement).blur();
+          e.preventDefault();
+          handlers.onEscape();
+        }
+        return;
+      }
+
+      // 입력 중이면 아래 단축키들은 모두 무시
+      if (typing) return;
 
       const isCtrl = e.ctrlKey || e.metaKey; // Mac 지원
-      const key = e.key.toLowerCase();
 
       // ─── Undo ────────────────────────────────────────────
       if (isCtrl && !e.shiftKey && key === 'z') {

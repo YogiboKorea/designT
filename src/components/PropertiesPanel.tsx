@@ -1309,6 +1309,8 @@ export default function PropertiesPanel({ activeSection, onUpdate, activeTextId,
                       onUpload={(url) => handleUpdateProduct(p.id, 'image', url)}
                       onClear={() => handleUpdateProduct(p.id, 'image', '')}
                     />
+
+                    {/* ━━━ 상품명 + 폰트 옵션 ━━━ */}
                     <div className="field">
                       <label>상품명</label>
                       <input
@@ -1317,6 +1319,62 @@ export default function PropertiesPanel({ activeSection, onUpdate, activeTextId,
                         onChange={(e) => handleUpdateProduct(p.id, 'name', e.target.value)}
                       />
                     </div>
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: '1fr auto auto',
+                        gap: 6,
+                        alignItems: 'end',
+                        marginBottom: 8,
+                      }}
+                    >
+                      <div className="slider-container" style={{ margin: 0 }}>
+                        <div className="slider-label" style={{ fontSize: 11, color: '#6b7280' }}>
+                          상품명 크기: {p.nameFontSize ?? 16}px
+                        </div>
+                        <input
+                          type="range"
+                          min="10"
+                          max="40"
+                          value={p.nameFontSize ?? 16}
+                          onChange={(e) => handleUpdateProduct(p.id, 'nameFontSize', parseInt(e.target.value))}
+                          className="custom-slider"
+                        />
+                      </div>
+                      <input
+                        type="color"
+                        title="상품명 색상"
+                        value={p.nameColor || '#1f2937'}
+                        onChange={(e) => handleUpdateProduct(p.id, 'nameColor', e.target.value)}
+                        style={{ width: 32, height: 32, border: '1px solid #d1d5db', borderRadius: 6, padding: 0, cursor: 'pointer' }}
+                      />
+                      <button
+                        type="button"
+                        title="템플릿 기본 스타일로 리셋"
+                        onClick={() => {
+                          onUpdate({
+                            ...data,
+                            products: data.products.map((x) =>
+                              x.id === p.id ? { ...x, nameColor: undefined, nameFontSize: undefined } : x,
+                            ),
+                          });
+                        }}
+                        style={{
+                          height: 32,
+                          padding: '0 8px',
+                          fontSize: 11,
+                          background: '#f3f4f6',
+                          border: '1px solid #d1d5db',
+                          borderRadius: 6,
+                          cursor: 'pointer',
+                          color: '#374151',
+                        }}
+                      >
+                        리셋
+                      </button>
+                    </div>
+
+                    {/* ━━━ 서브 설명 + 폰트 옵션 ━━━ */}
                     <div className="field">
                       <label>
                         서브 설명 (상품명 아래 표시){' '}
@@ -1329,6 +1387,63 @@ export default function PropertiesPanel({ activeSection, onUpdate, activeTextId,
                         onChange={(e) => handleUpdateProduct(p.id, 'subtitle', e.target.value)}
                       />
                     </div>
+                    {p.subtitle && p.subtitle.trim() !== '' && (
+                      <div
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: '1fr auto auto',
+                          gap: 6,
+                          alignItems: 'end',
+                          marginBottom: 8,
+                        }}
+                      >
+                        <div className="slider-container" style={{ margin: 0 }}>
+                          <div className="slider-label" style={{ fontSize: 11, color: '#6b7280' }}>
+                            서브 크기: {p.subtitleFontSize ?? 13}px
+                          </div>
+                          <input
+                            type="range"
+                            min="9"
+                            max="24"
+                            value={p.subtitleFontSize ?? 13}
+                            onChange={(e) => handleUpdateProduct(p.id, 'subtitleFontSize', parseInt(e.target.value))}
+                            className="custom-slider"
+                          />
+                        </div>
+                        <input
+                          type="color"
+                          title="서브 설명 색상"
+                          value={p.subtitleColor || '#6b7280'}
+                          onChange={(e) => handleUpdateProduct(p.id, 'subtitleColor', e.target.value)}
+                          style={{ width: 32, height: 32, border: '1px solid #d1d5db', borderRadius: 6, padding: 0, cursor: 'pointer' }}
+                        />
+                        <button
+                          type="button"
+                          title="템플릿 기본 스타일로 리셋"
+                          onClick={() => {
+                            onUpdate({
+                              ...data,
+                              products: data.products.map((x) =>
+                                x.id === p.id ? { ...x, subtitleColor: undefined, subtitleFontSize: undefined } : x,
+                              ),
+                            });
+                          }}
+                          style={{
+                            height: 32,
+                            padding: '0 8px',
+                            fontSize: 11,
+                            background: '#f3f4f6',
+                            border: '1px solid #d1d5db',
+                            borderRadius: 6,
+                            cursor: 'pointer',
+                            color: '#374151',
+                          }}
+                        >
+                          리셋
+                        </button>
+                      </div>
+                    )}
+
                     <div className="field">
                       <label>할인율 (%)</label>
                       <input

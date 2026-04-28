@@ -200,12 +200,32 @@ function BuilderInterface() {
     }
   }, [activeSegmentId, sections, setSections]);
 
+  /** 단축키: Escape / Enter — 선택 해제
+   *   1) 텍스트 선택돼 있으면 → 텍스트 선택만 해제 (섹션 선택은 유지)
+   *   2) 아이템(쿠폰/상품) 선택돼 있으면 → 아이템 선택만 해제
+   *   3) 그 외 → 섹션 선택도 해제
+   */
+  const handleShortcutEscape = useCallback(() => {
+    if (activeTextId) {
+      setActiveTextId(null);
+      return;
+    }
+    if (activeItemId) {
+      setActiveItemId(null);
+      return;
+    }
+    if (activeSegmentId) {
+      setActiveSegmentId(null);
+    }
+  }, [activeTextId, activeItemId, activeSegmentId]);
+
   useKeyboardShortcuts({
     onUndo: history.canUndo ? history.undo : undefined,
     onRedo: history.canRedo ? history.redo : undefined,
     onDelete: handleShortcutDelete,
     onCopy: handleShortcutCopy,
     onPaste: handleShortcutPaste,
+    onEscape: handleShortcutEscape,
   });
 
   /**
@@ -405,7 +425,8 @@ function BuilderInterface() {
               '· Ctrl+Y : 다시 실행\n' +
               '· Delete : 선택 요소/섹션 삭제\n' +
               '· Ctrl+C : 복사\n' +
-              '· Ctrl+V : 붙여넣기'
+              '· Ctrl+V : 붙여넣기\n' +
+              '· Esc / Enter : 선택 해제'
             }
             style={{
               width: 36,

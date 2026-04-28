@@ -95,8 +95,8 @@ export default function ProductDescriptionBuilder({ data, onChange, isPreview = 
     }
     return false;
   })();
-  const nameColor = isDarkBg ? '#fef3c7' : '#1f2937';
-  const subtitleColor = isDarkBg ? '#a8a29e' : '#6b7280';
+  const autoNameColor = isDarkBg ? '#fef3c7' : '#1f2937';
+  const autoSubtitleColor = isDarkBg ? '#a8a29e' : '#6b7280';
 
   // 빈 상태 안내
   const isEmpty = !template && products.length === 0 && texts.length === 0;
@@ -138,14 +138,22 @@ export default function ProductDescriptionBuilder({ data, onChange, isPreview = 
             {((p.name && p.name.trim() !== '') || (p.subtitle && p.subtitle.trim() !== '')) && (
               <div className="product-card-body">
                 {p.name && p.name.trim() !== '' && (
-                  <div className="product-card-name" style={{ color: nameColor }}>{p.name}</div>
+                  <div
+                    className="product-card-name"
+                    style={{
+                      color: p.nameColor || autoNameColor,
+                      fontSize: p.nameFontSize ?? 16,
+                    }}
+                  >
+                    {p.name}
+                  </div>
                 )}
                 {p.subtitle && p.subtitle.trim() !== '' && (
                   <div
                     className="product-card-subtitle"
                     style={{
-                      color: subtitleColor,
-                      fontSize: 13,
+                      color: p.subtitleColor || autoSubtitleColor,
+                      fontSize: p.subtitleFontSize ?? 13,
                       fontWeight: 400,
                       marginTop: 4,
                       lineHeight: 1.45,
