@@ -5,6 +5,7 @@ import { MAIN_VISUAL_TEMPLATES, getTemplateById } from '../data/main-visual-temp
 import { COUPON_TEMPLATES, getCouponTemplateById } from '../data/coupon-templates';
 import { PRODUCT_TEMPLATES, getProductTemplateById } from '../data/product-templates';
 import { STICKER_LIBRARY, STICKER_CATEGORIES, StickerCategory, instantiateSticker } from '../data/sticker-library';
+import PromptBuilderLink from './PromptBuilderLink';
 
 interface PropertiesPanelProps {
   activeSection: SectionData | null;
@@ -1546,6 +1547,7 @@ export default function PropertiesPanel({ activeSection, onUpdate, activeTextId,
       <div className="props-header">
         <h2>{activeSection.type === 'main' ? '메인 비주얼 속성' : activeSection.type === 'coupon' ? '쿠폰 속성' : '상품 속성'}</h2>
       </div>
+      <PromptBuilderLink sectionType={activeSection.type} />
       {activeSection.type === 'main' && renderMainVisualProps(activeSection as any)}
       {activeSection.type === 'coupon' && renderCouponProps(activeSection as any)}
       {activeSection.type === 'product' && renderProductProps(activeSection as any)}

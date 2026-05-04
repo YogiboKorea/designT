@@ -150,6 +150,42 @@ export default function Home() {
           </div>
 
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            {/* 🪄 프롬프트 받기 — 강조 CTA */}
+            <Link href="/prompt-builder" style={linkReset}>
+              <button
+                style={{
+                  padding: '8px 14px',
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  background: 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '10px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  boxShadow: '0 2px 8px rgba(124,58,237,0.25)',
+                }}
+              >
+                <span style={{ fontSize: '14px' }}>🪄</span>
+                프롬프트 받기
+              </button>
+            </Link>
+            <div style={{ width: 1, height: 22, background: '#e5e7eb', margin: '0 4px' }} />
+            <Link href="/references" style={linkReset}>
+              <button style={btnSecondary}>
+                <span style={{ fontSize: '14px' }}>📚</span>
+                레퍼런스
+              </button>
+            </Link>
+            <Link href="/references/import" style={linkReset}>
+              <button style={btnSecondary}>
+                <span style={{ fontSize: '14px' }}>📥</span>
+                일괄 등록
+              </button>
+            </Link>
+            <div style={{ width: 1, height: 22, background: '#e5e7eb', margin: '0 4px' }} />
             <Link href="/builder" style={linkReset}>
               <button style={btnPrimary}>
                 <span style={{ fontSize: '14px' }}>＋</span>
