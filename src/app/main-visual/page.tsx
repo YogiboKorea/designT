@@ -4,6 +4,7 @@ import html2canvas from 'html2canvas';
 import Link from 'next/link';
 import MainVisualCanvas from '../../components/MainVisualCanvas';
 import PreviewModal from '../../components/PreviewModal';
+import AppShell from '@/components/AppShell';
 import { TextItem } from '../builder/types';
 import {
   MAIN_VISUAL_SIZES,
@@ -31,6 +32,7 @@ const CAPTURE_IDS: Record<MainVisualDevice, string> = {
 export default function MainVisualBuilderPage() {
   const [title, setTitle] = useState('');
   const [device, setDevice] = useState<MainVisualDevice>('web');
+  const [isSingleMode, setIsSingleMode] = useState(false);
 
   // ─────────────────────────────────────────────────────────────────────────
   // Undo/Redo 히스토리 엔벨롭
@@ -141,9 +143,337 @@ export default function MainVisualBuilderPage() {
   const [eventId, setEventId] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
 
+  const applySnsPreset = (type: 'A' | 'B' | 'C' | 'D' | 'E', isInit = false) => {
+    setState((prev) => {
+      const current = prev.web;
+      const t = Date.now().toString();
+      let nextWeb = { ...current };
+
+      const bottomY = MAIN_VISUAL_SIZES.web.height - 120;
+
+      if (type === 'A') {
+        nextWeb = {
+          ...nextWeb,
+          useGradient: true,
+          showLogo: true,
+          logoColor: 'white',
+          gradient: {
+            angle: 180,
+            stops: [
+              { color: '#000000', opacity: 0.5, offset: 0 },
+              { color: '#000000', opacity: 0, offset: 50 },
+            ]
+          },
+          texts: [
+            {
+              id: t + 'snsA1',
+              text: '요기보 빈백 가정의 달 특가',
+              position: { x: 90, y: 190 },
+              style: { color: '#FFFFFF', fontSize: 52, fontWeight: 600, textAlign: 'center', lineHeight: 1.2, letterSpacing: -1, fontFamily: "'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, sans-serif", textShadow: '0 2px 10px rgba(0,0,0,0.3)', width: 900 },
+            },
+            {
+              id: t + 'snsA2',
+              text: 'UP TO 25%',
+              position: { x: 90, y: 260 },
+              style: { color: '#3DE2FF', fontSize: 160, fontWeight: 800, textAlign: 'center', lineHeight: 1.1, letterSpacing: -2, fontFamily: "'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, sans-serif", textShadow: '0 4px 15px rgba(0,0,0,0.3)', width: 900 },
+            }
+          ]
+        };
+      } else if (type === 'B') {
+        nextWeb = {
+          ...nextWeb,
+          useGradient: true,
+          showLogo: true,
+          logoColor: 'color',
+          gradient: {
+            angle: 0,
+            stops: [
+              { color: '#FFFFFF', opacity: 0.8, offset: 0 },
+              { color: '#FFFFFF', opacity: 0, offset: 40 },
+            ]
+          },
+          texts: [
+            {
+              id: t + 'snsB1',
+              text: 'UP TO\n25%',
+              position: { x: 740, y: 80 },
+              style: { color: '#FFFFFF', backgroundColor: '#FF5555', fontSize: 36, subFontSize: 72, fontWeight: 800, textAlign: 'center', lineHeight: 1.1, letterSpacing: 0, fontFamily: "'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, sans-serif", isBadge: true, badgeShape: 'starburst', width: 220 },
+            },
+            {
+              id: t + 'snsB2',
+              text: '요기보 빈백 소파',
+              position: { x: 70, y: MAIN_VISUAL_SIZES.web.height - 360 },
+              style: { color: '#222222', fontSize: 68, fontWeight: 700, textAlign: 'left', lineHeight: 1.2, letterSpacing: -1, fontFamily: "'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, sans-serif" },
+            },
+            {
+              id: t + 'snsB3',
+              text: ' 가정의달 역대급 할인 중 ',
+              position: { x: 70, y: MAIN_VISUAL_SIZES.web.height - 265 },
+              style: { color: '#FFFFFF', backgroundColor: '#A01515', fontSize: 62, fontWeight: 800, textAlign: 'left', lineHeight: 1.2, letterSpacing: -1, fontFamily: "'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, sans-serif" },
+            }
+          ]
+        };
+      } else if (type === 'C') {
+        nextWeb = {
+          ...nextWeb,
+          useGradient: false,
+          showLogo: true,
+          logoColor: 'white',
+          texts: [
+            {
+              id: t + 'snsC1',
+              text: '좁은 방은 넓게, 거실은 아늑하게!',
+              position: { x: 80, y: 80 },
+              style: { color: '#666666', fontSize: 36, fontWeight: 600, textAlign: 'left', lineHeight: 1.2, letterSpacing: -1, fontFamily: "'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, sans-serif" },
+            },
+            {
+              id: t + 'snsC2',
+              text: '요기보 빈백 소파',
+              position: { x: 80, y: 150 },
+              style: { color: '#111111', fontSize: 85, fontWeight: 800, textAlign: 'left', lineHeight: 1.2, letterSpacing: -2, fontFamily: "'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, sans-serif" },
+            },
+            {
+              id: t + 'snsC3',
+              text: ' 가정의 달 최대 25% 할인 ',
+              position: { x: 70, y: 250 },
+              style: { color: '#111111', backgroundColor: '#FFD6E0', fontSize: 85, fontWeight: 800, textAlign: 'left', lineHeight: 1.2, letterSpacing: -2, fontFamily: "'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, sans-serif" },
+            },
+            {
+              id: t + 'snsC4',
+              text: '요기보 빈백 25% 특가로 구매하기 →',
+              position: { x: 0, y: bottomY },
+              style: { color: '#FFFFFF', backgroundColor: '#333333', fontSize: 40, fontWeight: 600, textAlign: 'center', lineHeight: 120, letterSpacing: -1, fontFamily: "'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, sans-serif", width: 1080 },
+            }
+          ]
+        };
+      } else if (type === 'D') {
+        nextWeb = {
+          ...nextWeb,
+          useGradient: false,
+          showLogo: true,
+          logoColor: 'color',
+          texts: [
+            {
+              id: t + 'snsD1',
+              text: '어린이날 선물 고민 중이라면?',
+              position: { x: 0, y: 140 },
+              style: { color: '#444444', fontSize: 40, fontWeight: 600, textAlign: 'center', lineHeight: 1.2, letterSpacing: -1, fontFamily: "'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, sans-serif", width: 1080 },
+            },
+            {
+              id: t + 'snsD2',
+              text: '털 빠짐 없이 안전한',
+              position: { x: 0, y: 210 },
+              style: { color: '#111111', fontSize: 90, fontWeight: 900, textAlign: 'center', lineHeight: 1.2, letterSpacing: -2, fontFamily: "'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, sans-serif", width: 1080 },
+            },
+            {
+              id: t + 'snsD3',
+              text: '요기보 애착 인형',
+              position: { x: 0, y: 320 },
+              style: { color: '#22C55E', fontSize: 90, fontWeight: 900, textAlign: 'center', lineHeight: 1.2, letterSpacing: -2, fontFamily: "'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, sans-serif", width: 1080 },
+            },
+            {
+              id: t + 'snsD4',
+              text: '요기보 애착 인형 10% 특가로 구매하기 →',
+              position: { x: 0, y: bottomY },
+              style: { color: '#FFFFFF', backgroundColor: '#1E293B', fontSize: 40, fontWeight: 600, textAlign: 'center', lineHeight: 120, letterSpacing: -1, fontFamily: "'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, sans-serif", width: 1080 },
+            }
+          ]
+        };
+      } else if (type === 'E') {
+        nextWeb = {
+          ...nextWeb,
+          useGradient: false,
+          showLogo: true,
+          logoColor: 'white',
+          texts: [
+            {
+              id: t + 'snsE1',
+              text: '어린이날·어버이날 선물 고민 끝!',
+              position: { x: 0, y: 100 },
+              style: { color: '#444444', fontSize: 40, fontWeight: 600, textAlign: 'center', lineHeight: 1.2, letterSpacing: -1, fontFamily: "'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, sans-serif", width: 1080 },
+            },
+            {
+              id: t + 'snsE2',
+              text: '요기보 빈백 소파',
+              position: { x: 0, y: 170 },
+              style: { color: '#111111', fontSize: 90, fontWeight: 900, textAlign: 'center', lineHeight: 1.2, letterSpacing: -2, fontFamily: "'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, sans-serif", width: 1080 },
+            },
+            {
+              id: t + 'snsE3',
+              text: ' 최대 25% 할인 중! ',
+              position: { x: 160, y: 280 },
+              style: { color: '#FFFFFF', backgroundColor: '#EF4444', fontSize: 85, fontWeight: 900, textAlign: 'center', lineHeight: 1.2, letterSpacing: -2, fontFamily: "'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, sans-serif" },
+            },
+            {
+              id: t + 'snsE4',
+              text: '요기보 빈백 25% 특가로 구매하기 →',
+              position: { x: 0, y: bottomY },
+              style: { color: '#FFFFFF', backgroundColor: '#333333', fontSize: 40, fontWeight: 600, textAlign: 'center', lineHeight: 120, letterSpacing: -1, fontFamily: "'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, sans-serif", width: 1080 },
+            }
+          ]
+        };
+      }
+
+      return {
+        ...prev,
+        web: nextWeb
+      };
+    });
+    if (!isInit) {
+      // 강제 스냅샷
+      lastSnapshotRef.current = 0;
+    }
+  };
+
+  const applyWebPreset = (type: 'Default' | 'A' | 'B' | 'C' | 'D' | 'E', isInit = false) => {
+    setState((prev) => {
+      const current = prev.web;
+      const t = Date.now().toString();
+      let nextWeb = { ...current };
+
+
+
+      if (type === 'Default') {
+        nextWeb = {
+          ...nextWeb,
+          bgColor: '#ffffff',
+          bgGraphicType: null,
+          imageMode: 'free',
+          useGradient: true,
+          showLogo: false,
+          logoColor: 'color',
+          gradient: {
+            angle: 90,
+            stops: [
+              { color: '#F2E2CB', opacity: 1, offset: 0 },
+              { color: '#F2E2CB', opacity: 0, offset: 50 },
+            ]
+          },
+          texts: [
+            { id: t + 'w1', text: '글로벌 NO.1 베스트 셀러', position: { x: 388, y: 170 }, style: { color: '#252525', fontSize: 45, fontWeight: 700, textAlign: 'left', lineHeight: 1, letterSpacing: -0.9, fontFamily: "'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, sans-serif" } },
+            { id: t + 'w2', text: 'YOGIBO MAX', position: { x: 388, y: 239 }, style: { color: '#FFFFFF', fontSize: 90, fontWeight: 800, textAlign: 'left', lineHeight: 1, letterSpacing: -1.8, fontFamily: "'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, sans-serif", textShadow: '0 2px 10px #BCB29B' } },
+            { id: t + 'w3', text: '5초에 1개씩 판매되는 빈백 소파', position: { x: 388, y: 353 }, style: { color: '#252525', fontSize: 28, fontWeight: 400, textAlign: 'left', lineHeight: 40, letterSpacing: -0.84, fontFamily: "'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, sans-serif" } },
+            { id: t + 'w4', text: '요기보 맥스 →', position: { x: 388, y: 434 }, style: { color: '#FFFFFF', backgroundColor: '#45B3C2', fontSize: 28, fontWeight: 600, textAlign: 'center', lineHeight: 1, letterSpacing: -0.56, isPill: true, fontFamily: "'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, sans-serif" } }
+          ]
+        };
+      } else if (type === 'A') {
+        nextWeb = {
+          ...nextWeb,
+          bgColor: '#0C2053',
+          bgGraphicType: 'A',
+          imageMode: 'free',
+          useGradient: false,
+          showLogo: true,
+          logoColor: 'white',
+          texts: [
+            { id: t + 'webA1', text: 'LUNAR NEW YEAR,', position: { x: 160, y: 220 }, style: { color: '#FFFFFF', fontSize: 50, fontWeight: 300, textAlign: 'left', lineHeight: 1.1, letterSpacing: 0, fontFamily: "'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, sans-serif" } },
+            { id: t + 'webA2', text: 'RELAXING HOME', position: { x: 160, y: 275 }, style: { color: '#FFFFFF', fontSize: 50, fontWeight: 800, textAlign: 'left', lineHeight: 1.1, letterSpacing: 0, fontFamily: "'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, sans-serif" } },
+            { id: t + 'webA3', text: '2025.01.17(금) ~ 02.02(일)', position: { x: 160, y: 350 }, style: { color: '#FFFFFF', fontSize: 24, fontWeight: 400, textAlign: 'left', lineHeight: 1.1, letterSpacing: 0, fontFamily: "'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, sans-serif" } }
+          ]
+        };
+      } else if (type === 'B') {
+        nextWeb = {
+          ...nextWeb,
+          bgColor: '#F4E8DB',
+          bgGraphicType: 'B',
+          imageMode: 'cover',
+          useGradient: true,
+          gradient: {
+            angle: 90,
+            stops: [
+              { color: '#F4E8DB', opacity: 1, offset: 35 },
+              { color: '#F4E8DB', opacity: 0, offset: 60 },
+            ]
+          },
+          showLogo: true,
+          logoColor: 'color',
+          texts: [
+            { id: t + 'webB1', text: '4/11(금) ~ 4/20(일)', position: { x: 300, y: 150 }, style: { color: '#FFFFFF', fontSize: 24, fontWeight: 500, textAlign: 'left', lineHeight: 1.1, letterSpacing: 0, fontFamily: "'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, sans-serif" } },
+            { id: t + 'webB2', text: 'UP TO 15% OFF', position: { x: 300, y: 190 }, style: { color: '#FFFFFF', fontSize: 40, fontWeight: 800, textAlign: 'left', lineHeight: 1.1, letterSpacing: 0, fontFamily: "'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, sans-serif" } },
+            { id: t + 'webB3', text: 'SPRING', position: { x: 295, y: 250 }, style: { color: '#FFFFFF', fontSize: 110, fontWeight: 900, textAlign: 'left', lineHeight: 0.9, letterSpacing: -2, fontFamily: "'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, sans-serif", textShadow: '0 2px 10px rgba(0,0,0,0.1)' } },
+            { id: t + 'webB4', text: '& PASTEL', position: { x: 295, y: 350 }, style: { color: '#FFFFFF', fontSize: 110, fontWeight: 900, textAlign: 'left', lineHeight: 0.9, letterSpacing: -2, fontFamily: "'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, sans-serif", textShadow: '0 2px 10px rgba(0,0,0,0.1)' } },
+            { id: t + 'webB5', text: '프로모션 바로가기 →', position: { x: 300, y: 490 }, style: { color: '#A08F81', backgroundColor: '#FFFFFF', fontSize: 20, fontWeight: 700, textAlign: 'center', lineHeight: 60, width: 240, isPill: true, fontFamily: "'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, sans-serif" } }
+          ]
+        };
+      } else if (type === 'C') {
+        nextWeb = {
+          ...nextWeb,
+          bgColor: '#F4F1ED',
+          bgGraphicType: 'C',
+          imageMode: 'free',
+          useGradient: false,
+          showLogo: false,
+          texts: [
+            { id: t + 'webC1', text: 'yogibo × oggi otto', position: { x: 250, y: 280 }, style: { color: '#333333', fontSize: 50, fontWeight: 900, textAlign: 'left', lineHeight: 1.1, letterSpacing: 0, fontFamily: "'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, sans-serif" } },
+            { id: t + 'webC2', text: 'VIEW MORE >', position: { x: 350, y: 380 }, style: { color: '#FFFFFF', backgroundColor: '#83655E', fontSize: 18, fontWeight: 600, textAlign: 'center', lineHeight: 50, width: 200, isPill: true, fontFamily: "'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, sans-serif" } }
+          ]
+        };
+      } else if (type === 'D') {
+        nextWeb = {
+          ...nextWeb,
+          bgColor: '#A6CFD8',
+          bgGraphicType: 'D',
+          imageMode: 'cover',
+          useGradient: false,
+          showLogo: false,
+          texts: [
+            { id: t + 'webD1', text: 'Yogibo Max', position: { x: 150, y: 280 }, style: { color: '#FFFFFF', fontSize: 90, fontWeight: 600, textAlign: 'left', lineHeight: 1.1, letterSpacing: -2, fontFamily: "'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, sans-serif" } },
+            { id: t + 'webD2', text: 'これまでで最も自由な家具。', position: { x: 150, y: 390 }, style: { color: '#FFFFFF', fontSize: 32, fontWeight: 500, textAlign: 'left', lineHeight: 1.1, letterSpacing: 0, fontFamily: "'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, sans-serif" } },
+            { id: t + 'webD3', text: 'さらに詳しく >', position: { x: 150, y: 470 }, style: { color: '#FFFFFF', backgroundColor: '#62B5CC', fontSize: 20, fontWeight: 600, textAlign: 'center', lineHeight: 60, width: 220, isPill: true, fontFamily: "'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, sans-serif" } }
+          ]
+        };
+      } else if (type === 'E') {
+        nextWeb = {
+          ...nextWeb,
+          bgColor: '#0070B8',
+          bgGraphicType: 'E',
+          imageMode: 'free',
+          useGradient: false,
+          showLogo: false,
+          texts: [
+            { id: t + 'webE1', text: 'Sling GO', position: { x: 180, y: 150 }, style: { color: '#FFFFFF', fontSize: 110, fontWeight: 900, textAlign: 'left', lineHeight: 1.1, letterSpacing: -2, textShadow: '0 4px 10px rgba(0,0,0,0.2)', fontFamily: "'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, sans-serif" } },
+            { id: t + 'webE2', text: 'Re:Cover', position: { x: 180, y: 280 }, style: { color: '#E4B869', fontSize: 60, fontWeight: 900, textAlign: 'left', lineHeight: 1.1, letterSpacing: 0, fontFamily: "'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, sans-serif", textShadow: '0 2px 10px rgba(0,0,0,0.2)' } },
+            { id: t + 'webE3', text: 'バッグとスカーフの\n2WAY', position: { x: 180, y: 380 }, style: { color: '#FFFFFF', fontSize: 24, fontWeight: 400, textAlign: 'center', lineHeight: 1.3, letterSpacing: 0, fontFamily: "'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, sans-serif", textShadow: '0 2px 5px rgba(0,0,0,0.3)' } },
+            { id: t + 'webE4', text: 'さらに詳しく >', position: { x: 500, y: 550 }, style: { color: '#FFFFFF', backgroundColor: 'rgba(98, 181, 204, 0.7)', fontSize: 18, fontWeight: 600, textAlign: 'center', lineHeight: 50, width: 200, isPill: true, fontFamily: "'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, sans-serif" } }
+          ]
+        };
+      }
+
+      return {
+        ...prev,
+        web: nextWeb
+      };
+    });
+    if (!isInit) {
+      lastSnapshotRef.current = 0;
+    }
+  };
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
+
+    // Custom size override for SmartStore / SNS
+    const sizeParam = params.get('size');
+    if (sizeParam) {
+      const parts = sizeParam.split('x');
+      const w = parseInt(parts[0], 10);
+      const h = parseInt(parts[1] || '0', 10) || 800;
+      if (w > 0) {
+        MAIN_VISUAL_SIZES.web.width = w;
+        MAIN_VISUAL_SIZES.web.height = h;
+        MAIN_VISUAL_SIZES.web.label = `맞춤형 (${sizeParam})`;
+        setIsSingleMode(true);
+
+        if (sizeParam === '1080x1080' || sizeParam === '1080x1350') {
+          // 초기 진입 시 타입 A 적용
+          applySnsPreset('A', true);
+        } else if (sizeParam === '1920x680') {
+          applyWebPreset('Default', true);
+        }
+      }
+    }
+
     const id = params.get('id');
     if (id) {
       setEventId(id);
@@ -549,10 +879,23 @@ export default function MainVisualBuilderPage() {
     sampleEdgeColor(img, 'top');
 
   const handleConvertToBannerStyle = async () => {
-    const source = current.bgImageOriginal || current.bgImage;
+    let source = current.bgImage;
     if (!source) {
       alert('먼저 이미지를 업로드해주세요.');
       return;
+    }
+
+    // A타입 또는 E타입인 경우, "✨ 배너 스타일로 AI 자동 배치" 클릭 시 자동으로 누끼(배경 제거) 진행
+    const forceRemoveBg = (current.bgGraphicType === 'A' || current.bgGraphicType === 'E');
+    const imgSourceIsOriginal = (current.bgImage === current.bgImageOriginal);
+
+    if (forceRemoveBg && imgSourceIsOriginal) {
+      try {
+        const removedUrl = await runBackgroundRemoval(current.bgImageOriginal || current.bgImage!);
+        source = removedUrl;
+      } catch (err) {
+        console.error('배경 제거 실패:', err);
+      }
     }
 
     setAiStatus('📐 배너 레이아웃 생성 중…');
@@ -569,7 +912,75 @@ export default function MainVisualBuilderPage() {
       let angle: number;
       let fadeStartPct: number, fadeEndPct: number;
 
-      if (device === 'web') {
+      if (isSingleMode && canvas.width === 1080 && canvas.height === 1080) {
+        // ── SNS (1080x1080): 원본 이미지 살리면서 추천 뱃지 색상 적용 ──
+        const bgSample = sampleTopEdgeColor(img) || '#F2E2CB';
+        
+        // 밝기 계산해서 대비되는 포인트 컬러 추천
+        const r = parseInt(bgSample.slice(1,3), 16) || 255;
+        const g = parseInt(bgSample.slice(3,5), 16) || 255;
+        const b = parseInt(bgSample.slice(5,7), 16) || 255;
+        const luma = 0.299 * r + 0.587 * g + 0.114 * b;
+        const recommendedBadgeColor = luma > 160 ? '#FF5555' : '#FFC000';
+
+        const t = Date.now().toString();
+        
+        // 기존에 있는 텍스트 중 뱃지가 있으면 해당 색상만 추천 색상으로 변경
+        let newTexts = current.texts.map(text => {
+          if (text.style.isBadge) {
+            return { ...text, style: { ...text.style, backgroundColor: recommendedBadgeColor } };
+          }
+          return text;
+        });
+
+        // 텍스트가 하나도 없으면 기본 옵션 B(뱃지 있는 형태)를 추천 색상으로 채워서 생성
+        if (newTexts.length === 0) {
+          newTexts = [
+            {
+              id: t + 'snsB1',
+              text: 'UP TO\n25%',
+              position: { x: 740, y: 80 },
+              style: { color: luma > 160 ? '#FFFFFF' : '#222222', backgroundColor: recommendedBadgeColor, fontSize: 36, fontWeight: 800, textAlign: 'center', lineHeight: 1.1, letterSpacing: 0, fontFamily: "'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, sans-serif", isBadge: true, width: 220 },
+            },
+            {
+              id: t + 'snsB2',
+              text: '요기보 빈백 소파',
+              position: { x: 70, y: 720 },
+              style: { color: luma > 160 ? '#222222' : '#FFFFFF', fontSize: 68, fontWeight: 700, textAlign: 'left', lineHeight: 1.2, letterSpacing: -1, fontFamily: "'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, sans-serif" },
+            },
+            {
+              id: t + 'snsB3',
+              text: ' 가정의달 역대급 할인 중 ',
+              position: { x: 70, y: 815 },
+              style: { color: '#FFFFFF', backgroundColor: '#A01515', fontSize: 62, fontWeight: 800, textAlign: 'left', lineHeight: 1.2, letterSpacing: -1, fontFamily: "'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, sans-serif" },
+            }
+          ];
+        }
+
+        updateCurrent({
+          bgImage: source, // 원본 그대로 유지 (cover 모드)
+          bgImageOriginal: source,
+          bgColor: '#ffffff',
+          imageMode: 'cover',
+          imageTransform: undefined,
+          showLogo: true,
+          logoColor: luma > 160 ? 'color' : 'white', // 배경이 밝으면 컬러 로고, 어두우면 흰색 로고
+          useGradient: true,
+          gradient: {
+            angle: 0,
+            stops: [
+              { color: luma > 160 ? '#FFFFFF' : '#000000', opacity: 0.8, offset: 0 },
+              { color: luma > 160 ? '#FFFFFF' : '#000000', opacity: 0, offset: 40 },
+            ]
+          },
+          texts: newTexts
+
+        });
+        setImageActive(false);
+        setAiStatus('✅ SNS 배너 레이아웃 생성 완료!');
+        setTimeout(() => setAiStatus(''), 2500);
+        return;
+      } else if (device === 'web') {
         // ── 웹: 세로 100% + 오른쪽 정렬, 왼쪽 → 오른쪽 페이드 ──
         drawW = canvas.height * imgAspect;
         drawH = canvas.height;
@@ -604,11 +1015,25 @@ export default function MainVisualBuilderPage() {
           featheredSource = cvs.toDataURL('image/png', 0.95);
         }
 
-        const g = current.gradient;
+        const isPresetActive = !!current.bgGraphicType;
+        const finalBgColor = isPresetActive ? current.bgColor : edgeColor;
+        const finalUseGradient = isPresetActive ? current.useGradient : true;
+        const finalGradient = isPresetActive
+          ? current.gradient
+          : (current.gradient ? {
+              ...current.gradient,
+              angle,
+              stops: [
+                { color: edgeColor, opacity: 1, offset: 0           },
+                { color: edgeColor, opacity: 1, offset: fadeStartPct },
+                { color: edgeColor, opacity: 0, offset: fadeEndPct   },
+              ],
+            } : undefined);
+
         updateCurrent({
           bgImage: featheredSource,
           bgImageOriginal: source,
-          bgColor: edgeColor,
+          bgColor: finalBgColor,
           imageMode: 'free',
           imageTransform: {
             x: drawX,
@@ -617,18 +1042,8 @@ export default function MainVisualBuilderPage() {
             aspect: imgAspect,
             blur: 0,
           },
-          useGradient: true,
-          gradient: g
-            ? {
-                ...g,
-                angle,
-                stops: [
-                  { color: edgeColor, opacity: 1, offset: 0           },
-                  { color: edgeColor, opacity: 1, offset: fadeStartPct },
-                  { color: edgeColor, opacity: 0, offset: fadeEndPct   },
-                ],
-              }
-            : undefined,
+          useGradient: finalUseGradient,
+          gradient: finalGradient,
         });
         setImageActive(false);
         setAiStatus('✅ 배너 레이아웃 생성 완료!');
@@ -1059,7 +1474,7 @@ export default function MainVisualBuilderPage() {
     try {
       const [web, mobile] = await Promise.all([
         captureDevice('web'),
-        captureDevice('mobile'),
+        isSingleMode ? Promise.resolve(null) : captureDevice('mobile'),
       ]);
       if (!web && !mobile) {
         alert('미리보기 생성에 실패했습니다.');
@@ -1091,7 +1506,7 @@ export default function MainVisualBuilderPage() {
     if (previewWebUrl) {
       toUpload.push({ key: 'web', data: previewWebUrl, filename: `${baseName}_web_${timestamp}.png` });
     }
-    if (previewMobileUrl) {
+    if (!isSingleMode && previewMobileUrl) {
       toUpload.push({ key: 'mobile', data: previewMobileUrl, filename: `${baseName}_mobile_${timestamp}.png` });
     }
 
@@ -1232,6 +1647,7 @@ export default function MainVisualBuilderPage() {
   }
 
   return (
+    <AppShell>
     <div style={{ minHeight: '100vh', background: '#f4f5f7', fontFamily: 'var(--font-sans)' }}>
       {/* AI 진행 상황 토스트 — 하단 중앙 고정 */}
       {aiStatus && (
@@ -1404,38 +1820,40 @@ export default function MainVisualBuilderPage() {
       </div>
 
       {/* Device Tabs */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          padding: '12px 24px',
-          background: '#fff',
-          borderBottom: '1px solid #e5e7eb',
-        }}
-      >
-        {(Object.keys(MAIN_VISUAL_SIZES) as MainVisualDevice[]).map((d) => (
-          <button
-            key={d}
-            onClick={() => setDevice(d)}
-            style={{
-              padding: '8px 16px',
-              fontSize: '13px',
-              fontWeight: 600,
-              borderRadius: '8px',
-              border: device === d ? '1px solid #2563eb' : '1px solid #e5e7eb',
-              background: device === d ? '#eff6ff' : '#fff',
-              color: device === d ? '#2563eb' : '#374151',
-              cursor: 'pointer',
-            }}
-          >
-            {d === 'web' ? '🖥' : '📱'} {MAIN_VISUAL_SIZES[d].label}
-          </button>
-        ))}
-        <span style={{ marginLeft: 'auto', fontSize: '12px', color: '#6b7280' }}>
-          원본 사이즈: {size.width} × {size.height} px
-        </span>
-      </div>
+      {!isSingleMode ? (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 24px', background: '#fff', borderBottom: '1px solid #e5e7eb' }}>
+          {(Object.keys(MAIN_VISUAL_SIZES) as MainVisualDevice[]).map((d) => (
+            <button
+              key={d}
+              onClick={() => setDevice(d)}
+              style={{
+                padding: '8px 16px',
+                fontSize: '13px',
+                fontWeight: 600,
+                borderRadius: '8px',
+                border: device === d ? '1px solid #2563eb' : '1px solid #e5e7eb',
+                background: device === d ? '#eff6ff' : '#fff',
+                color: device === d ? '#2563eb' : '#374151',
+                cursor: 'pointer',
+              }}
+            >
+              {d === 'web' ? '🖥' : '📱'} {MAIN_VISUAL_SIZES[d].label}
+            </button>
+          ))}
+          <span style={{ marginLeft: 'auto', fontSize: '12px', color: '#6b7280' }}>
+            원본 사이즈: {size.width} × {size.height} px
+          </span>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', alignItems: 'center', padding: '12px 24px', background: '#fff', borderBottom: '1px solid #e5e7eb' }}>
+          <div style={{ fontWeight: 700, fontSize: '14px', color: '#0f172a' }}>
+            🎨 {MAIN_VISUAL_SIZES.web.label} 에디터
+          </div>
+          <span style={{ marginLeft: 'auto', fontSize: '12px', color: '#6b7280' }}>
+            캔버스 사이즈: {size.width} × {size.height} px
+          </span>
+        </div>
+      )}
 
       {/* Main Layout */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: '16px', padding: '20px' }}>
@@ -1448,6 +1866,9 @@ export default function MainVisualBuilderPage() {
             bgColor={current.bgColor}
             useGradient={current.useGradient}
             gradient={current.gradient}
+            bgGraphicType={current.bgGraphicType}
+            showLogo={current.showLogo}
+            logoColor={current.logoColor}
             imageMode={current.imageMode || 'free'}
             imageTransform={current.imageTransform}
             onImageTransformChange={handleImageTransformChange}
@@ -1602,6 +2023,23 @@ export default function MainVisualBuilderPage() {
                         }}
                       />
                     )}
+                    {/* 로고 */}
+                    {c.showLogo && (
+                      <img
+                        src={c.logoColor === 'white' ? 'https://yogibo.kr/web/img/icon/logo3_off.png' : 'https://yogibo.kr/web/img/icon/logo3_on.png'}
+                        alt="Yogibo Logo"
+                        crossOrigin="anonymous"
+                        style={{
+                          position: 'absolute',
+                          top: '60px',
+                          left: '50%',
+                          transform: 'translateX(-50%)',
+                          width: '180px',
+                          height: 'auto',
+                          zIndex: 2,
+                        }}
+                      />
+                    )}
                     {c.texts.map((t) => {
                       const lh = t.style.lineHeight;
                       const resolvedLh =
@@ -1624,8 +2062,13 @@ export default function MainVisualBuilderPage() {
                             : undefined,
                         lineHeight: resolvedLh,
                         backgroundColor: t.style.backgroundColor || 'transparent',
-                        borderRadius: t.style.isPill ? '999px' : '4px',
-                        padding: t.style.isPill ? '8.5px 34.13px' : '0',
+                        borderRadius: t.style.isPill ? '999px' : (t.style.isBadge && t.style.badgeShape === 'circle' ? '50%' : (t.style.isBadge ? '0' : '4px')),
+                        clipPath: t.style.isBadge 
+                          ? (t.style.badgeShape === 'hexagon' 
+                              ? 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)'
+                              : (t.style.badgeShape === 'circle' ? 'circle(50% at 50% 50%)' : 'polygon(50% 0%, 61% 11%, 79% 9%, 83% 26%, 100% 34%, 93% 50%, 100% 66%, 83% 74%, 79% 91%, 61% 89%, 50% 100%, 39% 89%, 21% 91%, 17% 74%, 0% 66%, 7% 50%, 0% 34%, 17% 26%, 21% 9%, 39% 11%)'))
+                          : undefined,
+                        padding: t.style.isBadge ? '24px' : (t.style.isPill ? '8.5px 34.13px' : '0'),
                         fontFamily: t.style.fontFamily || "'Pretendard Variable', Pretendard, sans-serif",
                         textShadow: t.style.textShadow || undefined,
                         whiteSpace: 'pre-wrap',
@@ -1633,11 +2076,19 @@ export default function MainVisualBuilderPage() {
                           t.style.width === 'auto' || !t.style.width
                             ? 'auto'
                             : `${t.style.width}px`,
+                        aspectRatio: t.style.isBadge && t.style.width && t.style.width !== 'auto' ? '1 / 1' : undefined,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
                         zIndex: 2,
                       };
                       return (
-                        <div key={t.id} style={style}>
-                          {t.text}
+                        <div key={t.id} style={{ ...style, flexDirection: 'column' }}>
+                          {t.text ? t.text.split('\n').map((line, i) => (
+                            <div key={i} style={{ fontSize: i > 0 && t.style.subFontSize ? `${t.style.subFontSize}px` : 'inherit', width: '100%', textAlign: t.style.textAlign || 'center' }}>
+                              {line}
+                            </div>
+                          )) : "텍스트"}
                         </div>
                       );
                     })}
@@ -1720,7 +2171,7 @@ export default function MainVisualBuilderPage() {
                 }}
               />
 
-              <label style={fieldLabel}>글자 크기 ({activeText.style.fontSize}px)</label>
+              <label style={fieldLabel}>글자 크기 (첫 번째 줄) ({activeText.style.fontSize}px)</label>
               <input
                 type="range"
                 min={12}
@@ -1728,6 +2179,48 @@ export default function MainVisualBuilderPage() {
                 value={activeText.style.fontSize}
                 onChange={(e) => handleTextStyleChange({ fontSize: parseInt(e.target.value) })}
                 style={{ width: '100%', marginBottom: '12px' }}
+              />
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                <label style={{ ...fieldLabel, marginBottom: 0 }}>글자 크기 (두 번째 줄) ({activeText.style.subFontSize || activeText.style.fontSize}px)</label>
+                <label style={{ fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={!activeText.style.subFontSize}
+                    onChange={(e) => handleTextStyleChange({ subFontSize: e.target.checked ? undefined : activeText.style.fontSize })}
+                  />
+                  동일하게
+                </label>
+              </div>
+              <input
+                type="range"
+                min={12}
+                max={240}
+                value={activeText.style.subFontSize || activeText.style.fontSize}
+                disabled={!activeText.style.subFontSize}
+                onChange={(e) => handleTextStyleChange({ subFontSize: parseInt(e.target.value) })}
+                style={{ width: '100%', marginBottom: '12px', opacity: activeText.style.subFontSize ? 1 : 0.5 }}
+              />
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                <label style={{ ...fieldLabel, marginBottom: 0 }}>너비 (Width)</label>
+                <label style={{ fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={!activeText.style.width || activeText.style.width === 'auto'}
+                    onChange={(e) => handleTextStyleChange({ width: e.target.checked ? 'auto' : 200 })}
+                  />
+                  자동 크기
+                </label>
+              </div>
+              <input
+                type="range"
+                min={50}
+                max={600}
+                value={activeText.style.width === 'auto' || !activeText.style.width ? 200 : activeText.style.width}
+                disabled={!activeText.style.width || activeText.style.width === 'auto'}
+                onChange={(e) => handleTextStyleChange({ width: parseInt(e.target.value) })}
+                style={{ width: '100%', marginBottom: '12px', opacity: (!activeText.style.width || activeText.style.width === 'auto') ? 0.5 : 1 }}
               />
 
               <label style={fieldLabel}>굵기</label>
@@ -1803,6 +2296,65 @@ export default function MainVisualBuilderPage() {
                 </div>
               </div>
 
+              <label style={fieldLabel}>텍스트 배경 모양</label>
+              <div style={{ display: 'flex', gap: '6px', marginBottom: '6px', flexWrap: 'wrap' }}>
+                <button
+                  onClick={() => handleTextStyleChange({ isPill: false, isBadge: false })}
+                  style={{
+                    flex: '1 1 45%', padding: '6px', fontSize: '12px', borderRadius: '6px',
+                    border: (!activeText.style.isPill && !activeText.style.isBadge) ? '1px solid #2563eb' : '1px solid #d1d5db',
+                    background: (!activeText.style.isPill && !activeText.style.isBadge) ? '#eff6ff' : '#fff',
+                    cursor: 'pointer',
+                  }}
+                >
+                  기본 (사각)
+                </button>
+                <button
+                  onClick={() => handleTextStyleChange({ isPill: true, isBadge: false })}
+                  style={{
+                    flex: '1 1 45%', padding: '6px', fontSize: '12px', borderRadius: '6px',
+                    border: activeText.style.isPill ? '1px solid #2563eb' : '1px solid #d1d5db',
+                    background: activeText.style.isPill ? '#eff6ff' : '#fff',
+                    cursor: 'pointer',
+                  }}
+                >
+                  둥글게 (Pill)
+                </button>
+                <button
+                  onClick={() => handleTextStyleChange({ isPill: false, isBadge: true, badgeShape: 'starburst' })}
+                  style={{
+                    flex: '1 1 30%', padding: '6px', fontSize: '12px', borderRadius: '6px',
+                    border: activeText.style.isBadge && (!activeText.style.badgeShape || activeText.style.badgeShape === 'starburst') ? '1px solid #2563eb' : '1px solid #d1d5db',
+                    background: activeText.style.isBadge && (!activeText.style.badgeShape || activeText.style.badgeShape === 'starburst') ? '#eff6ff' : '#fff',
+                    cursor: 'pointer',
+                  }}
+                >
+                  톱니 뱃지
+                </button>
+                <button
+                  onClick={() => handleTextStyleChange({ isPill: false, isBadge: true, badgeShape: 'circle' })}
+                  style={{
+                    flex: '1 1 30%', padding: '6px', fontSize: '12px', borderRadius: '6px',
+                    border: activeText.style.isBadge && activeText.style.badgeShape === 'circle' ? '1px solid #2563eb' : '1px solid #d1d5db',
+                    background: activeText.style.isBadge && activeText.style.badgeShape === 'circle' ? '#eff6ff' : '#fff',
+                    cursor: 'pointer',
+                  }}
+                >
+                  원형 뱃지
+                </button>
+                <button
+                  onClick={() => handleTextStyleChange({ isPill: false, isBadge: true, badgeShape: 'hexagon' })}
+                  style={{
+                    flex: '1 1 30%', padding: '6px', fontSize: '12px', borderRadius: '6px',
+                    border: activeText.style.isBadge && activeText.style.badgeShape === 'hexagon' ? '1px solid #2563eb' : '1px solid #d1d5db',
+                    background: activeText.style.isBadge && activeText.style.badgeShape === 'hexagon' ? '#eff6ff' : '#fff',
+                    cursor: 'pointer',
+                  }}
+                >
+                  육각 뱃지
+                </button>
+              </div>
+
               <label style={fieldLabel}>정렬</label>
               <div style={{ display: 'flex', gap: '6px', marginBottom: '12px' }}>
                 {(['left', 'center', 'right'] as const).map((a) => (
@@ -1846,6 +2398,8 @@ export default function MainVisualBuilderPage() {
               <h3 style={{ margin: '0 0 12px 0', fontSize: '14px', fontWeight: 700 }}>
                 {device === 'web' ? '🖥 웹' : '📱 모바일'} 캔버스 설정
               </h3>
+
+
 
               {/* ───── ✨ AI 자동 처리 ───── */}
               <div
@@ -2004,6 +2558,259 @@ export default function MainVisualBuilderPage() {
                   * 체크박스 옵션은 업로드 시 자동 적용 / &quot;배너 스타일로 변환&quot;은 수동 실행.
                 </p>
               </div>
+
+              {/* ───── Web 프리셋 설정 (1920x680) ───── */}
+              {isSingleMode && MAIN_VISUAL_SIZES.web.width === 1920 && MAIN_VISUAL_SIZES.web.height === 680 && (
+                <div style={{ marginBottom: '16px', padding: '12px', background: '#fafafa', border: '1px solid #eef0f3', borderRadius: '8px' }}>
+                  <label style={{ ...fieldLabel, marginBottom: 8 }}>웹 레이아웃 프리셋</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: 12 }}>
+                    <button
+                      onClick={() => applyWebPreset('Default')}
+                      style={{ padding: '8px', fontSize: '12px', fontWeight: 600, borderRadius: '8px', border: '1px solid #d1d5db', background: '#fff', color: '#374151', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', transition: 'all 0.2s' }}
+                      onMouseOver={(e) => e.currentTarget.style.borderColor = '#2563eb'}
+                      onMouseOut={(e) => e.currentTarget.style.borderColor = '#d1d5db'}
+                    >
+                      <img src="/api/proxy-image?url=https%3A%2F%2Fyogibo.openhost.cafe24.com%2Fweb%2Fimg%2Fdesign%2F84e4d6d034ebd8750008d333c92eedcf.jpg" alt="Default Type Preview" style={{ width: '100%', borderRadius: '4px', objectFit: 'cover', aspectRatio: '2.8/1', border: '1px solid #f3f4f6' }} />
+                      기본타입
+                    </button>
+                    <button
+                      onClick={() => applyWebPreset('A')}
+                      style={{ padding: '8px', fontSize: '12px', fontWeight: 600, borderRadius: '8px', border: '1px solid #d1d5db', background: '#fff', color: '#374151', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', transition: 'all 0.2s' }}
+                      onMouseOver={(e) => e.currentTarget.style.borderColor = '#2563eb'}
+                      onMouseOut={(e) => e.currentTarget.style.borderColor = '#d1d5db'}
+                    >
+                      <img src="/api/proxy-image?url=https%3A%2F%2Fyogibo.openhost.cafe24.com%2Fweb%2Fimg%2Fdesign%2Fref_1778046011578_250113_%EB%A1%A4%EB%A7%81%EB%B0%B0%EB%84%88_%EC%84%A4%ED%8A%B9%EA%B0%80_pc.png" alt="A Type Preview" style={{ width: '100%', borderRadius: '4px', objectFit: 'cover', aspectRatio: '2.8/1', border: '1px solid #f3f4f6' }} />
+                      타입 A
+                    </button>
+                    <button
+                      onClick={() => applyWebPreset('B')}
+                      style={{ padding: '8px', fontSize: '12px', fontWeight: 600, borderRadius: '8px', border: '1px solid #d1d5db', background: '#fff', color: '#374151', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', transition: 'all 0.2s' }}
+                      onMouseOver={(e) => e.currentTarget.style.borderColor = '#2563eb'}
+                      onMouseOut={(e) => e.currentTarget.style.borderColor = '#d1d5db'}
+                    >
+                      <img src="/api/proxy-image?url=https%3A%2F%2Fyogibo.openhost.cafe24.com%2Fweb%2Fimg%2Fdesign%2Fref_1778046276217_250331_%EC%9E%90%EC%82%AC%EB%AA%B0_%ED%94%84%EB%A1%9C%EB%AA%A8%EC%85%98_4%EC%9B%94_%EC%8A%A4%ED%94%84%EB%A7%81_%ED%8C%8C%EC%8A%A4%ED%85%94_%EB%A9%94%EC%9D%B8_.png" alt="B Type Preview" style={{ width: '100%', borderRadius: '4px', objectFit: 'cover', aspectRatio: '2.8/1', border: '1px solid #f3f4f6' }} />
+                      타입 B
+                    </button>
+                    <button
+                      onClick={() => applyWebPreset('C')}
+                      style={{ padding: '8px', fontSize: '12px', fontWeight: 600, borderRadius: '8px', border: '1px solid #d1d5db', background: '#fff', color: '#374151', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', transition: 'all 0.2s' }}
+                      onMouseOver={(e) => e.currentTarget.style.borderColor = '#2563eb'}
+                      onMouseOut={(e) => e.currentTarget.style.borderColor = '#d1d5db'}
+                    >
+                      <img src="/api/proxy-image?url=https%3A%2F%2Fyogibo.openhost.cafe24.com%2Fweb%2Fimg%2Fdesign%2Fref_1778045901091_260428ogot_2000_1000.webp" alt="C Type Preview" style={{ width: '100%', borderRadius: '4px', objectFit: 'cover', aspectRatio: '2.8/1', border: '1px solid #f3f4f6' }} />
+                      타입 C
+                    </button>
+                    <button
+                      onClick={() => applyWebPreset('D')}
+                      style={{ padding: '8px', fontSize: '12px', fontWeight: 600, borderRadius: '8px', border: '1px solid #d1d5db', background: '#fff', color: '#374151', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', transition: 'all 0.2s' }}
+                      onMouseOver={(e) => e.currentTarget.style.borderColor = '#2563eb'}
+                      onMouseOut={(e) => e.currentTarget.style.borderColor = '#d1d5db'}
+                    >
+                      <img src="/api/proxy-image?url=https%3A%2F%2Fyogibo.openhost.cafe24.com%2Fweb%2Fimg%2Fdesign%2Fref_1778045914491_2602_Max__PC.webp" alt="D Type Preview" style={{ width: '100%', borderRadius: '4px', objectFit: 'cover', aspectRatio: '2.8/1', border: '1px solid #f3f4f6' }} />
+                      타입 D
+                    </button>
+                    <button
+                      onClick={() => applyWebPreset('E')}
+                      style={{ padding: '8px', fontSize: '12px', fontWeight: 600, borderRadius: '8px', border: '1px solid #d1d5db', background: '#fff', color: '#374151', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', transition: 'all 0.2s' }}
+                      onMouseOver={(e) => e.currentTarget.style.borderColor = '#2563eb'}
+                      onMouseOut={(e) => e.currentTarget.style.borderColor = '#d1d5db'}
+                    >
+                      <img src="/api/proxy-image?url=https%3A%2F%2Fyogibo.openhost.cafe24.com%2Fweb%2Fimg%2Fdesign%2Fref_1778045924564_PC_3323c7ed-cd6e-4c29-9384-5cd.webp" alt="E Type Preview" style={{ width: '100%', borderRadius: '4px', objectFit: 'cover', aspectRatio: '2.8/1', border: '1px solid #f3f4f6' }} />
+                      타입 E
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* ───── SNS 프리셋 설정 ───── */}
+              {isSingleMode && MAIN_VISUAL_SIZES.web.width === 1080 && (
+                <div style={{ marginBottom: '16px', padding: '12px', background: '#fafafa', border: '1px solid #eef0f3', borderRadius: '8px' }}>
+                  <label style={{ ...fieldLabel, marginBottom: 8 }}>SNS 레이아웃 프리셋</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: 12 }}>
+                    <button
+                      onClick={() => applySnsPreset('A')}
+                      style={{
+                        padding: '8px',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        borderRadius: '8px',
+                        border: '1px solid #d1d5db',
+                        background: '#fff',
+                        color: '#374151',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: '8px',
+                        transition: 'all 0.2s',
+                      }}
+                      onMouseOver={(e) => e.currentTarget.style.borderColor = '#2563eb'}
+                      onMouseOut={(e) => e.currentTarget.style.borderColor = '#d1d5db'}
+                    >
+                      <img 
+                        src="/api/proxy-image?url=https%3A%2F%2Fyogibo.openhost.cafe24.com%2Fweb%2Fimg%2Fdesign%2Fref_1778045769217_%EA%B4%91%EA%B3%A0%EC%86%8C%EC%9E%AC_%EA%B0%80%EC%A0%95%EC%9D%98%EB%8B%AC_%ED%8A%B9%EA%B0%80.jpg" 
+                        alt="A Type Preview" 
+                        style={{ width: '100%', borderRadius: '4px', objectFit: 'cover', aspectRatio: '1/1', border: '1px solid #f3f4f6' }} 
+                      />
+                      타입 A
+                    </button>
+                    <button
+                      onClick={() => applySnsPreset('B')}
+                      style={{
+                        padding: '8px',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        borderRadius: '8px',
+                        border: '1px solid #d1d5db',
+                        background: '#fff',
+                        color: '#374151',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: '8px',
+                        transition: 'all 0.2s',
+                      }}
+                      onMouseOver={(e) => e.currentTarget.style.borderColor = '#2563eb'}
+                      onMouseOut={(e) => e.currentTarget.style.borderColor = '#d1d5db'}
+                    >
+                      <img 
+                        src="/api/proxy-image?url=https%3A%2F%2Fyogibo.openhost.cafe24.com%2Fweb%2Fimg%2Fdesign%2Fref_1778045723245_%EA%B4%91%EA%B3%A0%EC%86%8C%EC%9E%AC__%EC%97%AD%EB%8C%80%EA%B8%89%ED%95%A0%EC%9D%B8%EC%A4%91.jpg" 
+                        alt="B Type Preview" 
+                        style={{ width: '100%', borderRadius: '4px', objectFit: 'cover', aspectRatio: '1/1', border: '1px solid #f3f4f6' }} 
+                      />
+                      타입 B
+                    </button>
+                    <button
+                      onClick={() => applySnsPreset('C')}
+                      style={{
+                        padding: '8px',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        borderRadius: '8px',
+                        border: '1px solid #d1d5db',
+                        background: '#fff',
+                        color: '#374151',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: '8px',
+                        transition: 'all 0.2s',
+                      }}
+                      onMouseOver={(e) => e.currentTarget.style.borderColor = '#2563eb'}
+                      onMouseOut={(e) => e.currentTarget.style.borderColor = '#d1d5db'}
+                    >
+                      <img 
+                        src="/api/proxy-image?url=https%3A%2F%2Fyogibo.openhost.cafe24.com%2Fweb%2Fimg%2Fdesign%2Fsns2.jpg" 
+                        alt="C Type Preview" 
+                        style={{ width: '100%', borderRadius: '4px', objectFit: 'cover', aspectRatio: '1/1', border: '1px solid #f3f4f6' }} 
+                      />
+                      타입 C
+                    </button>
+                    <button
+                      onClick={() => applySnsPreset('D')}
+                      style={{
+                        padding: '8px',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        borderRadius: '8px',
+                        border: '1px solid #d1d5db',
+                        background: '#fff',
+                        color: '#374151',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: '8px',
+                        transition: 'all 0.2s',
+                      }}
+                      onMouseOver={(e) => e.currentTarget.style.borderColor = '#2563eb'}
+                      onMouseOut={(e) => e.currentTarget.style.borderColor = '#d1d5db'}
+                    >
+                      <img 
+                        src="/api/proxy-image?url=https%3A%2F%2Fyogibo.openhost.cafe24.com%2Fweb%2Fimg%2Fdesign%2Fsns3.jpg" 
+                        alt="D Type Preview" 
+                        style={{ width: '100%', borderRadius: '4px', objectFit: 'cover', aspectRatio: '1/1', border: '1px solid #f3f4f6' }} 
+                      />
+                      타입 D
+                    </button>
+                    <button
+                      onClick={() => applySnsPreset('E')}
+                      style={{
+                        padding: '8px',
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        borderRadius: '8px',
+                        border: '1px solid #d1d5db',
+                        background: '#fff',
+                        color: '#374151',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: '8px',
+                        transition: 'all 0.2s',
+                      }}
+                      onMouseOver={(e) => e.currentTarget.style.borderColor = '#2563eb'}
+                      onMouseOut={(e) => e.currentTarget.style.borderColor = '#d1d5db'}
+                    >
+                      <img 
+                        src="/api/proxy-image?url=https%3A%2F%2Fyogibo.openhost.cafe24.com%2Fweb%2Fimg%2Fdesign%2Fsns2.jpg" 
+                        alt="E Type Preview" 
+                        style={{ width: '100%', borderRadius: '4px', objectFit: 'cover', aspectRatio: '1/1', border: '1px solid #f3f4f6' }} 
+                      />
+                      타입 E
+                    </button>
+                  </div>
+
+                  <label style={{ ...fieldLabel, marginBottom: 8, marginTop: 12, borderTop: '1px dashed #d1d5db', paddingTop: 12 }}>로고 설정</label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, marginBottom: 10 }}>
+                    <input
+                      type="checkbox"
+                      checked={current.showLogo || false}
+                      onChange={(e) => updateCurrent({ showLogo: e.target.checked })}
+                    />
+                    로고 표시하기
+                  </label>
+                  {current.showLogo && (
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      <button
+                        onClick={() => updateCurrent({ logoColor: 'white' })}
+                        style={{
+                          flex: 1,
+                          padding: '6px',
+                          fontSize: '12px',
+                          fontWeight: 600,
+                          borderRadius: '6px',
+                          border: current.logoColor === 'white' ? '1px solid #2563eb' : '1px solid #d1d5db',
+                          background: current.logoColor === 'white' ? '#eff6ff' : '#fff',
+                          color: current.logoColor === 'white' ? '#2563eb' : '#374151',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        흰색 로고
+                      </button>
+                      <button
+                        onClick={() => updateCurrent({ logoColor: 'color' })}
+                        style={{
+                          flex: 1,
+                          padding: '6px',
+                          fontSize: '12px',
+                          fontWeight: 600,
+                          borderRadius: '6px',
+                          border: current.logoColor === 'color' ? '1px solid #2563eb' : '1px solid #d1d5db',
+                          background: current.logoColor === 'color' ? '#eff6ff' : '#fff',
+                          color: current.logoColor === 'color' ? '#2563eb' : '#374151',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        컬러 로고
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div style={{ marginBottom: '16px' }}>
                 <label style={fieldLabel}>배경 이미지</label>
@@ -2356,9 +3163,20 @@ export default function MainVisualBuilderPage() {
                   borderRadius: '8px',
                 }}
               >
-                {/* 색상 */}
-                <label style={fieldLabel}>그라데이션 색상</label>
-                <input
+                <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, marginBottom: 12, fontWeight: 700, color: '#374151' }}>
+                  <input
+                    type="checkbox"
+                    checked={current.useGradient !== false}
+                    onChange={(e) => updateCurrent({ useGradient: e.target.checked })}
+                  />
+                  그라데이션 적용
+                </label>
+                
+                {current.useGradient !== false && (
+                  <>
+                    {/* 색상 */}
+                    <label style={fieldLabel}>그라데이션 색상</label>
+                    <input
                   type="color"
                   value={
                     (current.gradient?.stops?.[0]?.color) ||
@@ -2469,8 +3287,11 @@ export default function MainVisualBuilderPage() {
                   }}
                 >
                   * 한쪽은 선택한 색이 진하게, 반대쪽은 투명하게 페이드됩니다.<br />
-                  * 페이드 범위를 줄이면 색이 빨리 사라져서 이미지가 더 많이 보여요.
+                  * 페이드 범위를 줄이면 색이 빨리 사라져서 이미지가 더 많이 보여요.<br />
+                  * "그라데이션 적용" 체크를 해제하면 이미지만 깔끔하게 보입니다.
                 </p>
+                  </>
+                )}
               </div>
 
 
@@ -2493,6 +3314,42 @@ export default function MainVisualBuilderPage() {
               >
                 + 텍스트 추가
               </button>
+              
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '6px' }}>포인트 아이콘 추가 (클릭하면 텍스트로 추가됩니다)</div>
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                  {['⭐', '✨', '💬', '🔥', '🎁', '💖'].map((emoji) => (
+                    <button
+                      key={emoji}
+                      onClick={() => {
+                        const newText = {
+                          id: Date.now().toString(),
+                          text: emoji,
+                          position: { x: 50, y: 50 },
+                          style: {
+                            color: '#000000',
+                            fontSize: 80,
+                            fontWeight: 400,
+                            textAlign: 'center' as const,
+                          },
+                        };
+                        updateCurrent({ texts: [...current.texts, newText] });
+                        setActiveTextId(newText.id);
+                      }}
+                      style={{
+                        padding: '6px 12px',
+                        background: '#f3f4f6',
+                        border: '1px solid #d1d5db',
+                        borderRadius: '6px',
+                        fontSize: '20px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
               <div>
                 <div style={{ fontSize: '12px', color: '#6b7280', marginBottom: '6px' }}>
@@ -2556,20 +3413,17 @@ export default function MainVisualBuilderPage() {
         imageDataUrl={displayedPreviewUrl}
         title={
           title +
-          ' · ' +
-          (previewDisplayDevice === 'web'
-            ? MAIN_VISUAL_SIZES.web.label
-            : MAIN_VISUAL_SIZES.mobile.label)
+          (isSingleMode ? '' : ' · ' + (previewDisplayDevice === 'web' ? MAIN_VISUAL_SIZES.web.label : MAIN_VISUAL_SIZES.mobile.label))
         }
         onClose={() => {
           if (!isSaving) setIsPreviewing(false);
         }}
         onConfirm={handleConfirmSaveAll}
-        confirmLabel="웹+모바일 둘 다 저장"
+        confirmLabel={isSingleMode ? "저장하기" : "웹+모바일 둘 다 저장"}
         isProcessing={isSaving}
       />
 
-      {isPreviewing && (
+      {isPreviewing && !isSingleMode && (
         <div
           style={{
             position: 'fixed',
@@ -2607,6 +3461,7 @@ export default function MainVisualBuilderPage() {
         </div>
       )}
     </div>
+    </AppShell>
   );
 }
 

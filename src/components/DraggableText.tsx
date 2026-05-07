@@ -83,20 +83,32 @@ export default function DraggableText({ item, isActive, onSelect, onUpdate, onDe
     letterSpacing: style.letterSpacing !== undefined ? `${style.letterSpacing}px` : undefined,
     lineHeight: resolvedLineHeight,
     backgroundColor: style.backgroundColor || 'transparent',
-    borderRadius: style.isPill ? '999px' : '4px',
-    // Figma 가이드 기준(상하 8.5, 좌 34.13, 우 34.13)
-    //   글자가 길어지면 버튼 너비는 자동으로 따라 커짐 (width 고정 없음)
-    padding: style.isPill ? '8.5px 34.13px' : '0',
+    borderRadius: style.isPill ? '999px' : (style.isBadge && style.badgeShape === 'circle' ? '50%' : (style.isBadge ? '0' : '4px')),
+    // Badge shape using clip-path
+    clipPath: style.isBadge 
+      ? (style.badgeShape === 'hexagon' 
+          ? 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)'
+          : (style.badgeShape === 'circle' ? 'circle(50% at 50% 50%)' : 'polygon(50% 0%, 61% 11%, 79% 9%, 83% 26%, 100% 34%, 93% 50%, 100% 66%, 83% 74%, 79% 91%, 61% 89%, 50% 100%, 39% 89%, 21% 91%, 17% 74%, 0% 66%, 7% 50%, 0% 34%, 17% 26%, 21% 9%, 39% 11%)'))
+      : undefined,
+    padding: style.isBadge ? '24px' : (style.isPill ? '8.5px 34.13px' : '0'),
     fontFamily: style.fontFamily || 'var(--font-sans)',
     textShadow: style.textShadow || undefined,
     pointerEvents: isPreview ? 'none' : 'auto',
-    width: style.width === 'auto' || !style.width ? 'auto' : `${style.width}px`
+    width: style.width === 'auto' || !style.width ? 'auto' : `${style.width}px`,
+    aspectRatio: style.isBadge && style.width && style.width !== 'auto' ? '1 / 1' : undefined,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
   };
 
   if (isPreview) {
     return (
-      <div style={{ position: 'absolute', left: `${position.x}px`, top: `${position.y}px`, zIndex: 2, ...textStyle }}>
-        {text}
+      <div style={{ position: 'absolute', left: `${position.x}px`, top: `${position.y}px`, zIndex: 2, ...textStyle, flexDirection: 'column' }}>
+        {text ? text.split('\n').map((line, i) => (
+          <div key={i} style={{ fontSize: i > 0 && style.subFontSize ? `${style.subFontSize}px` : 'inherit', width: '100%', textAlign: style.textAlign || 'center' }}>
+            {line}
+          </div>
+        )) : "텍스트"}
       </div>
     );
   }
@@ -124,8 +136,12 @@ export default function DraggableText({ item, isActive, onSelect, onUpdate, onDe
         if (onSelect) onSelect();
       }}
     >
-      <div style={textStyle}>
-        {text || "텍스트"}
+      <div style={{ ...textStyle, flexDirection: 'column' }}>
+        {text ? text.split('\n').map((line, i) => (
+          <div key={i} style={{ fontSize: i > 0 && style.subFontSize ? `${style.subFontSize}px` : 'inherit', width: '100%', textAlign: style.textAlign || 'center' }}>
+            {line}
+          </div>
+        )) : "텍스트"}
       </div>
 
       {isActive && onDelete && (

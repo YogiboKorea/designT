@@ -8,7 +8,7 @@ import { TextItem } from '../builder/types';
 export const MAIN_VISUAL_SIZES = {
   web:    { width: 1920, height: 680, label: '웹 (1920×680)' },
   mobile: { width: 800,  height: 907, label: '모바일 (800×907)' },
-} as const;
+};
 
 export type MainVisualDevice = keyof typeof MAIN_VISUAL_SIZES;
 
@@ -84,6 +84,7 @@ export interface MainVisualCanvas {
   /** true 이면 bgImage 없을 때 그라데이션을 배경으로 사용 */
   useGradient?: boolean;
   gradient?: CanvasGradient;
+  bgGraphicType?: 'A' | 'B' | 'C' | 'D' | 'E' | null;
   /**
    * 이미지 배치 모드.
    *  - 'free' (기본) : 드래그/리사이즈로 원하는 곳에 배치 (원본 크기 시작)
@@ -97,6 +98,8 @@ export interface MainVisualCanvas {
   eventDate?: string;
   showButton?: boolean;
   buttonLabel?: string;
+  showLogo?: boolean;
+  logoColor?: 'white' | 'color';
 }
 
 export interface MainVisualState {

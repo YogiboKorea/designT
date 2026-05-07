@@ -8,7 +8,7 @@
  *   - 단건 삭제 / 활성화 토글
  */
 import { useState, useEffect, CSSProperties } from 'react';
-import TopNav from '@/components/TopNav';
+import AppShell from '@/components/AppShell';
 
 interface Product {
   _id: string;
@@ -165,8 +165,7 @@ export default function ProductsPage() {
   };
 
   return (
-    <>
-      <TopNav active="products" />
+    <AppShell>
       <div style={S.page}>
         <header style={S.hd}>
           <div>
@@ -432,7 +431,7 @@ export default function ProductsPage() {
           </div>
         )}
       </div>
-    </>
+    </AppShell>
   );
 }
 

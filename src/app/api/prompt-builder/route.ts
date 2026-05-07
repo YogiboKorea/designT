@@ -24,7 +24,7 @@
  * ─────────────────────────────────────────────────────────────────
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { TOOL_USAGE_GUIDES } from '../../../data/campaign-templates';
+import { TOOL_USAGE_GUIDES, DESIGN_CODES, ASPECT_RATIOS } from '../../../data/campaign-templates';
 
 export const runtime = 'nodejs';
 export const maxDuration = 30;
@@ -426,6 +426,26 @@ ${productInfo.sceneEn ? `\nUsage scene: ${productInfo.sceneEn}` : ''}
 ${preservationInstruction}`
     : '';
 
+  // ── 디자인 코드 블록 (사이즈별 디자인 룰) ──────────────────
+  // 같은 캠페인이라도 사이즈/플랫폼에 따라 디자인 문법이 완전히 다름.
+  // 자사몰 가로 배너 디자인을 인스타 정사각에 그대로 쓰면 안 되니,
+  // 사이즈에 매핑된 designCodeKey 의 instruction 을 시스템 프롬프트에 주입.
+  const aspectMeta = ASPECT_RATIOS.find((a) => a.value === aspectRatio);
+  const designCode = aspectMeta?.designCodeKey
+    ? DESIGN_CODES[aspectMeta.designCodeKey]
+    : null;
+  const designCodeBlock = designCode
+    ? `[사이즈/플랫폼별 디자인 코드 — 반드시 따를 것]
+Output target: ${aspectMeta!.label}
+Design ratio: ${designCode.ratio}
+
+${designCode.instruction}
+
+⚠️ The design code above is NOT optional. Different sizes/platforms have
+fundamentally different design grammars. Apply this design code on top of
+all other instructions (campaign template, event ops, etc.).`
+    : '';
+
   // ── 이벤트 운영 정보 블록 ──────────────────────────────
   // 디자인에 자연스럽게 녹아들어야 할 운영 요소들 (기간, CTA, 라벨, 유의사항)
   const opItems: string[] = [];
@@ -540,6 +560,8 @@ ${preservationBlock}
 ${eventOpBlock}
 
 ${variationBlock}
+
+${designCodeBlock}
 
 [타겟 도구: ${targetTool}]
 ${toolGuide}

@@ -28,8 +28,7 @@ import {
   type CampaignTemplate,
   type FieldDef,
 } from '../../data/campaign-templates';
-import TopNav from '@/components/TopNav';
-
+import AppShell from '@/components/AppShell';
 interface ReferenceItem {
   _id: string;
   title: string;
@@ -76,9 +75,8 @@ export default function PromptBuilderPage() {
   const [uploadError, setUploadError] = useState<string>('');
 
   // ── 4.6. 원본 보존 강도 (대표 이미지가 있을 때만 사용됨) ──
-  const [preservationMode, setPreservationMode] = useState<
-    'free' | 'similar' | 'strict' | 'overlay-only'
-  >('similar');
+  // 타입은 union 으로 강제하지 않고 string 으로 받아서 PRESERVATION_MODES 변경에 자동 대응
+  const [preservationMode, setPreservationMode] = useState<string>('similar');
 
   // ── 0. 제품 정보 (모든 양식 공통) ────────────────
   const [productCategoryId, setProductCategoryId] = useState<string>('beanbag');
@@ -365,9 +363,7 @@ export default function PromptBuilderPage() {
     : 0;
 
   return (
-    <>
-      <TopNav active="prompt-builder" />
-      <div style={S.page}>
+    <AppShell>      <div style={S.page}>
         <header style={S.hd}>
           <h1 style={S.h1}>🪄 AI 이미지 프롬프트 빌더</h1>
           <p style={S.lead}>
@@ -522,21 +518,31 @@ export default function PromptBuilderPage() {
         <section style={S.section}>
           <h2 style={S.h2}>① 캠페인 유형</h2>
           <div style={S.templateGrid}>
-            {CAMPAIGN_TEMPLATES.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => setTemplateId(t.id)}
-                style={{
-                  ...S.templateCard,
-                  ...(t.id === templateId ? S.templateCardActive : {}),
-                }}
-              >
-                <div style={S.templateEmoji}>{t.emoji}</div>
-                <div style={S.templateName}>{t.name}</div>
-                <div style={S.templateDesc}>{t.description}</div>
-              </button>
-            ))}
+            {CAMPAIGN_TEMPLATES.map((t, idx) => {
+              const isSelected = t.id === templateId;
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => setTemplateId(t.id)}
+                  style={{
+                    ...S.templateCard,
+                    ...(isSelected ? S.templateCardActive : {}),
+                  }}
+                >
+                  {/* 선택 시 명확한 체크 표시 */}
+                  {isSelected && (
+                    <div style={S.templateSelectedBadge}>✓ 선택됨</div>
+                  )}
+                  <div style={S.templateNumber}>
+                    {['①', '②', '③', '④', '⑤'][idx] ?? `${idx + 1}.`}
+                  </div>
+                  <div style={S.templateEmoji}>{t.emoji}</div>
+                  <div style={S.templateName}>{t.name}</div>
+                  <div style={S.templateDesc}>{t.description}</div>
+                </button>
+              );
+            })}
           </div>
         </section>
 
@@ -1045,8 +1051,7 @@ export default function PromptBuilderPage() {
           )}
         </section>
       </div>
-    </>
-  );
+    </AppShell>  );
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -1153,6 +1158,7 @@ const S: Record<string, CSSProperties> = {
     gap: 12,
   },
   templateCard: {
+    position: 'relative',
     padding: '16px 14px',
     border: '2px solid #e5e7eb',
     borderRadius: 10,
@@ -1162,9 +1168,29 @@ const S: Record<string, CSSProperties> = {
     transition: 'all 0.15s',
   },
   templateCardActive: {
-    borderColor: '#7c3aed',
-    background: '#faf5ff',
-    boxShadow: '0 0 0 3px rgba(124, 58, 237, 0.1)',
+    borderColor: '#dc2626',
+    borderWidth: 3,
+    background: '#fef2f2',
+    boxShadow: '0 0 0 4px rgba(220, 38, 38, 0.15), 0 4px 12px rgba(220, 38, 38, 0.2)',
+    transform: 'scale(1.02)',
+  },
+  templateSelectedBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    padding: '3px 8px',
+    background: '#dc2626',
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: 700,
+    borderRadius: 12,
+    letterSpacing: '0.5px',
+  },
+  templateNumber: {
+    fontSize: 12,
+    fontWeight: 700,
+    color: '#9ca3af',
+    marginBottom: 4,
   },
   templateEmoji: { fontSize: 24, marginBottom: 6 },
   templateName: { fontSize: 14, fontWeight: 700, marginBottom: 4 },

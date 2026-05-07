@@ -821,12 +821,29 @@ export const TOOL_USAGE_GUIDES: Record<string, ToolUsageGuide> = {
 };
 
 /**
- * 출력 사이즈 — 자사몰 + 스마트스토어 실제 운영 규격.
+ * 출력 사이즈 — 자사몰 + 스마트스토어 + SNS 실제 운영 규격.
  *
  * value 형식: '가로x세로' (픽셀) 또는 비율 ('16:9' 등)
  * AI 도구에 전달 시: "1920x680 pixels (banner format)" 같은 자연어로 변환됨.
+ *
+ * 각 사이즈에 referenceCategory 와 designCodeKey 가 매핑되어 있어,
+ * 빌더에서 사이즈 선택 시 자동으로:
+ *   1. 해당 카테고리의 레퍼런스만 그리드에 표시
+ *   2. 사이즈에 맞는 디자인 코드 (DESIGN_CODES) 가 시스템 프롬프트에 주입
  */
-export const ASPECT_RATIOS = [
+export interface AspectRatio {
+  value: string;
+  label: string;
+  group: '자사몰' | '스마트스토어' | 'SNS';
+  width: number;
+  height: number; // 0 = 가변
+  /** 매칭되는 레퍼런스 카테고리 — 빌더에서 자동 필터링에 사용 */
+  referenceCategory: 'web-banner' | 'sns' | 'sns-story' | 'mobile' | 'thumbnail';
+  /** DESIGN_CODES 의 키 — 시스템 프롬프트에 주입될 디자인 룰 선택 */
+  designCodeKey: string;
+}
+
+export const ASPECT_RATIOS: AspectRatio[] = [
   // ── 자사몰 (Cafe24 Yogibo) ──────────────────────
   {
     value: '1920x680',
@@ -834,6 +851,8 @@ export const ASPECT_RATIOS = [
     group: '자사몰',
     width: 1920,
     height: 680,
+    referenceCategory: 'web-banner',
+    designCodeKey: 'web-banner-wide',
   },
   {
     value: '800x907',
@@ -841,13 +860,17 @@ export const ASPECT_RATIOS = [
     group: '자사몰',
     width: 800,
     height: 907,
+    referenceCategory: 'mobile',
+    designCodeKey: 'mobile-hero',
   },
   {
     value: '800x-',
     label: '📄 자사몰 이벤트 페이지 (800×가변)',
     group: '자사몰',
     width: 800,
-    height: 0, // 가변
+    height: 0,
+    referenceCategory: 'mobile',
+    designCodeKey: 'mobile-long',
   },
 
   // ── 스마트스토어 (네이버) ────────────────────────
@@ -857,6 +880,8 @@ export const ASPECT_RATIOS = [
     group: '스마트스토어',
     width: 1920,
     height: 400,
+    referenceCategory: 'web-banner',
+    designCodeKey: 'web-banner-slim',
   },
   {
     value: '750x600',
@@ -864,6 +889,8 @@ export const ASPECT_RATIOS = [
     group: '스마트스토어',
     width: 750,
     height: 600,
+    referenceCategory: 'mobile',
+    designCodeKey: 'mobile-hero',
   },
   {
     value: '1280x200',
@@ -871,6 +898,8 @@ export const ASPECT_RATIOS = [
     group: '스마트스토어',
     width: 1280,
     height: 200,
+    referenceCategory: 'web-banner',
+    designCodeKey: 'web-banner-thin',
   },
   {
     value: '750x240',
@@ -878,6 +907,8 @@ export const ASPECT_RATIOS = [
     group: '스마트스토어',
     width: 750,
     height: 240,
+    referenceCategory: 'mobile',
+    designCodeKey: 'mobile-thin',
   },
   {
     value: '1300x1300',
@@ -885,6 +916,8 @@ export const ASPECT_RATIOS = [
     group: '스마트스토어',
     width: 1300,
     height: 1300,
+    referenceCategory: 'thumbnail',
+    designCodeKey: 'thumbnail-square',
   },
   {
     value: '860x-',
@@ -892,15 +925,19 @@ export const ASPECT_RATIOS = [
     group: '스마트스토어',
     width: 860,
     height: 0,
+    referenceCategory: 'mobile',
+    designCodeKey: 'mobile-long',
   },
 
-  // ── 일반 SNS ───────────────────────────────────
+  // ── SNS ───────────────────────────────────────
   {
     value: '1080x1080',
     label: '📷 인스타그램 정사각 (1080×1080)',
     group: 'SNS',
     width: 1080,
     height: 1080,
+    referenceCategory: 'sns',
+    designCodeKey: 'sns-square',
   },
   {
     value: '1080x1350',
@@ -908,12 +945,222 @@ export const ASPECT_RATIOS = [
     group: 'SNS',
     width: 1080,
     height: 1350,
-  },
-  {
-    value: '1080x1920',
-    label: '📱 인스타그램 스토리/릴스 (1080×1920)',
-    group: 'SNS',
-    width: 1080,
-    height: 1920,
+    referenceCategory: 'sns',
+    designCodeKey: 'sns-portrait',
   },
 ];
+
+// ════════════════════════════════════════════════════════════════
+// 사이즈별 디자인 코드 — 시스템 프롬프트에 자동 주입되는 디자인 룰
+// ════════════════════════════════════════════════════════════════
+//
+// 같은 캠페인이라도 사이즈/플랫폼에 따라 디자인 문법이 완전히 다르다.
+// 자사몰 가로 배너의 디자인 룰을 인스타 정사각에 그대로 적용하면
+// 모바일에서 글자 작아 안 보이고, 인스타 디자인을 자사몰에 적용하면
+// 가로 공간이 비어 보인다.
+//
+// 빌더에서 사이즈 선택 → designCodeKey 매핑 → 시스템 프롬프트에 주입.
+// AI 가 "이 사이즈에 맞는 디자인 문법" 으로 작성.
+//
+export interface DesignCode {
+  key: string;
+  label: string;
+  ratio: string; // 표시용 (예: "16:9")
+  /** AI 시스템 프롬프트에 주입될 영문 디자인 룰 */
+  instruction: string;
+}
+
+export const DESIGN_CODES: Record<string, DesignCode> = {
+  // ── 웹 배너 ─────────────────────────────────
+  'web-banner-wide': {
+    key: 'web-banner-wide',
+    label: '와이드 가로 배너',
+    ratio: '약 2.8:1',
+    instruction: `DESIGN CODE: WIDE WEB BANNER (e.g., 1920×680)
+Layout — split left/right composition:
+  - One side (typically left or right): main product/model photograph
+  - Other side: text hierarchy — header label, headline, sub-copy, CTA
+Multiple text levels are EXPECTED and ENCOURAGED:
+  • Top: small label/ribbon (예: "어버이날 기념")
+  • Middle: large headline (예: "어버이날 감사 세일")
+  • Below: sub-copy or discount badge (예: "30% OFF")
+  • Bottom-right: CTA button + event period
+  • Footer: small disclaimer
+Use the full horizontal width — empty side space looks wasteful.
+Decorative elements (flowers, ribbons, confetti) can fill negative space.
+Desktop-first viewing — text can be moderate size (12-72px equivalent).`,
+  },
+
+  'web-banner-slim': {
+    key: 'web-banner-slim',
+    label: '슬림 가로 배너',
+    ratio: '약 4.8:1',
+    instruction: `DESIGN CODE: SLIM WEB BANNER (e.g., 1920×400)
+Very wide and short — tight vertical space.
+Layout — left/right split with simplified text:
+  - Product or visual on one side (compact)
+  - Text on other side: 1 headline + 1 small CTA
+Skip sub-copy and disclaimers — too tight.
+Headline must be punchy and short (5-12 chars).
+Single dominant message — no text hierarchy crowding.`,
+  },
+
+  'web-banner-thin': {
+    key: 'web-banner-thin',
+    label: '얇은 띠 배너',
+    ratio: '약 6.4:1',
+    instruction: `DESIGN CODE: THIN STRIP BANNER (e.g., 1280×200)
+Extremely thin — like a coupon strip or top-bar promotion.
+Single horizontal text line + small CTA button is typical.
+No imagery beyond brand color blocks or small icon.
+Keep total content under 1 line (예: "전 상품 20% OFF · 5.1~5.11 · 지금 보기 →").
+Bold, high-contrast typography for readability at small heights.`,
+  },
+
+  // ── 모바일 ──────────────────────────────────
+  'mobile-hero': {
+    key: 'mobile-hero',
+    label: '모바일 히어로 배너',
+    ratio: '약 1:1.1 ~ 5:4',
+    instruction: `DESIGN CODE: MOBILE HERO BANNER (e.g., 800×907 or 750×600)
+Mobile-first viewing — text must be LARGER than desktop equivalent.
+Vertical-leaning composition — product can take top half, text bottom (or reverse).
+Single message dominance — no horizontal text/image split.
+Touch-friendly CTA button (large, clearly tappable).
+Reduce text density — split into 1 headline + 1 sub + CTA at most.
+Korean text rendering must be clearly legible at thumbnail size.`,
+  },
+
+  'mobile-long': {
+    key: 'mobile-long',
+    label: '모바일 롱 페이지',
+    ratio: '가변 (긴 세로)',
+    instruction: `DESIGN CODE: MOBILE LONG PAGE (e.g., 800×variable, 860×variable)
+Long scrolling event/detail page composition.
+Multiple sections stacked vertically — main visual on top, then content blocks.
+Each section ~600-800px tall, with clear visual breaks.
+Top section: hero banner with main message + CTA.
+Middle sections: product details, features, testimonials.
+Bottom section: final CTA + disclaimer + secondary links.
+Korean typography optimized for mobile reading flow.`,
+  },
+
+  'mobile-thin': {
+    key: 'mobile-thin',
+    label: '모바일 얇은 띠',
+    ratio: '약 3:1',
+    instruction: `DESIGN CODE: MOBILE THIN STRIP (e.g., 750×240)
+Compact promotional strip for mobile.
+Single line of text + small CTA — like a tap-to-action banner.
+High contrast, bold typography.
+Brand color background, no complex imagery.`,
+  },
+
+  // ── SNS ────────────────────────────────────
+  'sns-square': {
+    key: 'sns-square',
+    label: 'SNS 정사각 (인스타 피드)',
+    ratio: '1:1',
+    instruction: `DESIGN CODE: SNS SQUARE (1080×1080, Instagram feed)
+Square format optimized for social media feed scrolling.
+
+⭐ MOBILE-FIRST READABILITY — text must be LARGE and clear at thumbnail size.
+⭐ THUMB-STOPPING IMPACT — high visual contrast, vibrant colors, bold typography.
+⭐ SINGLE DOMINANT MESSAGE — no information overload.
+
+Layout patterns (pick ONE):
+  A. Centered headline with product photo above/below
+  B. Diagonal split — text on one corner, product opposite
+  C. Full product image with text overlaid on neutral area
+  D. Bold typography taking 50%+ of canvas with product as accent
+
+Avoid:
+  ✗ Multiple competing text blocks
+  ✗ Long disclaimers (move to caption instead)
+  ✗ Tiny CTA — caption-driven action is preferred on Instagram
+  ✗ Generic e-commerce layout (split left/right with multiple texts)
+
+Korean text guidance:
+  - Headline: 5-12 characters, very large
+  - Sub-copy: 1 short line max (or skip)
+  - Brand name visible (hashtag-like or small logo)
+  - Avoid English mixing unless intentional aesthetic
+
+Color/Style:
+  - Vibrant, saturated palette (Instagram aesthetic)
+  - Modern sans-serif typography (예: Pretendard, SUIT, Spoqa)
+  - High contrast between text and background
+  - Decorative elements minimal — focus on hero element`,
+  },
+
+  'sns-portrait': {
+    key: 'sns-portrait',
+    label: 'SNS 세로형 (인스타 4:5)',
+    ratio: '4:5',
+    instruction: `DESIGN CODE: SNS PORTRAIT (1080×1350, Instagram 4:5 portrait)
+Slightly taller than square — Instagram's preferred post ratio for max screen real estate.
+Same principles as square format but with extra vertical room:
+  - Top 1/3: header label or accent
+  - Center: main visual + headline (largest area)
+  - Bottom 1/3: sub-copy + small CTA reference
+
+Vertical reading flow — top to bottom hierarchy.
+Mobile-first text sizing.`,
+  },
+
+  'sns-story': {
+    key: 'sns-story',
+    label: 'SNS 세로 풀스크린 (스토리/릴스)',
+    ratio: '9:16',
+    instruction: `DESIGN CODE: SNS STORY/REELS (1080×1920, Instagram Stories / Reels)
+Full-screen vertical mobile format.
+
+⭐ SAFE ZONES — top and bottom 250px each are reserved for:
+  - TOP: profile handle, sticker overlays
+  - BOTTOM: swipe-up area, message/reaction bar
+  → Keep MAIN content in CENTER 1/2 of canvas (rough vertical 480-1440 zone)
+
+Layout pattern:
+  - Top zone (0-250px): leave clear or use brand color
+  - Center 1: visual hook (large product image, large headline)
+  - Center 2: main message (1 headline + 1 sub-copy)
+  - Bottom zone (1670-1920px): leave clear for swipe-up
+
+Vertical reading flow — top to bottom storytelling.
+Korean text MUST be very large (24-72pt equivalent for headline).
+Single message focus — viewer scrolls past in 3-5 seconds.
+
+Style:
+  - Trendy, dynamic, Gen-Z friendly
+  - Bold gradient backgrounds welcome
+  - Optional: subtle motion-implying elements (lines, stars)
+  - High saturation`,
+  },
+
+  // ── 썸네일 ──────────────────────────────────
+  'thumbnail-square': {
+    key: 'thumbnail-square',
+    label: '대표 이미지 (정사각)',
+    ratio: '1:1',
+    instruction: `DESIGN CODE: SQUARE THUMBNAIL (e.g., 1300×1300, 스마트스토어 대표)
+Product-focused square image — first impression of the product on listing pages.
+Layout:
+  - Product is the HERO — fills 60-80% of canvas
+  - Text minimal — usually just product name/brand or 1 promo phrase
+  - Clean, neutral or branded background
+  - No long copy, no CTA button (clicking the thumbnail itself = CTA)
+
+Style:
+  - High product clarity (sharp focus, good lighting)
+  - Brand-consistent background color
+  - Optional small accent: badge ("BEST", "신상", "할인") in corner
+  - Text overlay (if any) = brand color, single line
+
+Avoid:
+  ✗ Multiple text levels
+  ✗ Decorative elements competing with product
+  ✗ Lifestyle scenes (this is product-focused, not lifestyle)`,
+  },
+};
+
+

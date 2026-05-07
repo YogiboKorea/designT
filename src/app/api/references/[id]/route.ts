@@ -1,87 +1,75 @@
-/**
- * GET    /api/references/[id]   → 단건 조회
- * PATCH  /api/references/[id]   → 메타 수정 (태그/메모/제목 등)
- * DELETE /api/references/[id]   → 삭제
- */
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase } from '@/lib/mongodb';
 import ReferenceImage from '@/models/ReferenceImage';
 
 export const runtime = 'nodejs';
 
+/**
+ * GET /api/references/:id   — 단일 조회
+ * PATCH /api/references/:id — 일부 필드 수정 (제목/카테고리/플랫폼/태그/메모/활성)
+ * DELETE /api/references/:id — 삭제 (소프트: active=false)
+ */
+
 export async function GET(
   _req: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
+  ctx: { params: Promise<{ id: string }> },
 ) {
   try {
-    const { id } = await params;
     await connectToDatabase();
+    const { id } = await ctx.params;
     const item = await ReferenceImage.findById(id).lean();
     if (!item) {
-      return NextResponse.json(
-        { ok: false, message: '레퍼런스를 찾을 수 없습니다.' },
-        { status: 404 },
-      );
+      return NextResponse.json({ ok: false, message: 'not found' }, { status: 404 });
     }
-    return NextResponse.json({ ok: true, item });
+    return NextResponse.json({ ok: true, item: { ...item, _id: String((item as any)._id) } });
   } catch (err: any) {
-    return NextResponse.json(
-      { ok: false, message: err?.message ?? '실패' },
-      { status: 500 },
-    );
+    return NextResponse.json({ ok: false, message: err?.message ?? 'unknown' }, { status: 500 });
   }
 }
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
+  ctx: { params: Promise<{ id: string }> },
 ) {
   try {
-    const { id } = await params;
-    const body = await req.json();
     await connectToDatabase();
+    const { id } = await ctx.params;
 
-    const allowed = ['title', 'tags', 'source', 'note', 'extractedTokens'];
-    const update: any = {};
+    const body = await req.json();
+    const allowed = ['title', 'category', 'platform', 'tags', 'visualNotes', 'active'];
+    const update: Record<string, any> = {};
     for (const k of allowed) {
-      if (body[k] !== undefined) update[k] = body[k];
+      if (k in body) update[k] = body[k];
     }
 
-    const updated = await ReferenceImage.findByIdAndUpdate(id, update, { new: true });
+    const updated = await ReferenceImage.findByIdAndUpdate(id, update, { new: true }).lean();
     if (!updated) {
-      return NextResponse.json(
-        { ok: false, message: '레퍼런스를 찾을 수 없습니다.' },
-        { status: 404 },
-      );
+      return NextResponse.json({ ok: false, message: 'not found' }, { status: 404 });
     }
-    return NextResponse.json({ ok: true, item: updated });
+    return NextResponse.json({ ok: true, item: { ...updated, _id: String((updated as any)._id) } });
   } catch (err: any) {
-    return NextResponse.json(
-      { ok: false, message: err?.message ?? '실패' },
-      { status: 500 },
-    );
+    return NextResponse.json({ ok: false, message: err?.message ?? 'unknown' }, { status: 500 });
   }
 }
 
 export async function DELETE(
   _req: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
+  ctx: { params: Promise<{ id: string }> },
 ) {
   try {
-    const { id } = await params;
     await connectToDatabase();
-    const deleted = await ReferenceImage.findByIdAndDelete(id);
-    if (!deleted) {
-      return NextResponse.json(
-        { ok: false, message: '레퍼런스를 찾을 수 없습니다.' },
-        { status: 404 },
-      );
+    const { id } = await ctx.params;
+    // 소프트 삭제 (active = false)
+    const updated = await ReferenceImage.findByIdAndUpdate(
+      id,
+      { active: false },
+      { new: true },
+    ).lean();
+    if (!updated) {
+      return NextResponse.json({ ok: false, message: 'not found' }, { status: 404 });
     }
     return NextResponse.json({ ok: true });
   } catch (err: any) {
-    return NextResponse.json(
-      { ok: false, message: err?.message ?? '실패' },
-      { status: 500 },
-    );
+    return NextResponse.json({ ok: false, message: err?.message ?? 'unknown' }, { status: 500 });
   }
 }

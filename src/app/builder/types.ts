@@ -1,6 +1,7 @@
 export interface TextStyle {
   color: string;
   fontSize: number;
+  subFontSize?: number;
   fontWeight: string | number;
   textAlign?: 'left' | 'center' | 'right';
   letterSpacing?: number;
@@ -14,6 +15,8 @@ export interface TextStyle {
   backgroundColor?: string;
   width?: number | 'auto';
   isPill?: boolean;
+  isBadge?: boolean;
+  badgeShape?: 'starburst' | 'circle' | 'hexagon';
   /** CSS font-family. 지정 없으면 전역 Pretendard. */
   fontFamily?: string;
   /** CSS text-shadow. e.g. "0 2px 10px #BCB29B" */

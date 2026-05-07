@@ -6,16 +6,29 @@ export async function POST(req: Request) {
   client.ftp.verbose = true;
 
   try {
-    const body = await req.json();
-    const { imageBase64, filename } = body;
+    const contentType = req.headers.get('content-type') || '';
+    let buffer: Buffer;
+    let filename: string;
 
-    if (!imageBase64 || !filename) {
-      return NextResponse.json({ success: false, message: 'Image data and filename are required' }, { status: 400 });
+    if (contentType.includes('application/json')) {
+      const body = await req.json();
+      if (!body.imageBase64 || !body.filename) {
+        return NextResponse.json({ success: false, message: 'Image data and filename are required' }, { status: 400 });
+      }
+      const base64Data = body.imageBase64.replace(/^data:image\/\w+;base64,/, '');
+      buffer = Buffer.from(base64Data, 'base64');
+      filename = body.filename;
+    } else if (contentType.includes('multipart/form-data')) {
+      const formData = await req.formData();
+      const file = formData.get('file') as File;
+      if (!file) {
+        return NextResponse.json({ success: false, message: 'File is required' }, { status: 400 });
+      }
+      buffer = Buffer.from(await file.arrayBuffer());
+      filename = file.name;
+    } else {
+      return NextResponse.json({ success: false, message: 'Unsupported content type' }, { status: 400 });
     }
-
-    // Convert base64 to buffer
-    const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
-    const buffer = Buffer.from(base64Data, 'base64');
 
     // Connect to FTP
     await client.access({
