@@ -315,7 +315,7 @@ function BuilderInterface() {
       const response = await fetch(endpoint, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, sections, imageUrl: capturedImageUrl }),
+        body: JSON.stringify({ title, sections, imageUrl: capturedImageUrl, eventType: 'page' }),
       });
 
       if (response.ok) {
@@ -363,61 +363,104 @@ function BuilderInterface() {
   const activeSection = sections.find(s => s.id === activeSegmentId) || null;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden', fontFamily: 'var(--font-sans)', background: '#f4f5f7' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden', fontFamily: 'var(--font-sans)', background: 'var(--bg)' }}>
       {/* Top Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 20px', background: '#fff', borderBottom: '1px solid #e5e7eb', zIndex: 10 }}>
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '15px' }}>
-          <h1 style={{ fontSize: '16px', margin: 0, fontWeight: 'bold' }}>빌더</h1>
-          <input 
-            type="text" 
-            placeholder="이벤트 제목 (필수)" 
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          padding: '12px 22px',
+          background: '#fff',
+          borderBottom: '1px solid var(--border)',
+          zIndex: 10,
+        }}
+      >
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '5px 10px',
+              background: 'var(--accent-soft)',
+              color: 'var(--accent)',
+              borderRadius: 6,
+              fontSize: 11,
+              fontWeight: 700,
+              letterSpacing: '0.04em',
+              textTransform: 'uppercase',
+            }}
+          >
+            📐 페이지 빌더
+          </div>
+          <input
+            type="text"
+            placeholder="이벤트 제목을 입력하세요"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            style={{ width: '300px', padding: '6px 12px', fontSize: '14px', borderRadius: '6px', border: '1px solid #e5e7eb', outline: 'none' }}
+            style={{
+              flex: 1,
+              maxWidth: 480,
+              padding: '8px 12px',
+              fontSize: 14,
+              fontWeight: 600,
+              borderRadius: 8,
+              border: '1px solid var(--border)',
+              background: '#fff',
+              outline: 'none',
+              color: 'var(--text)',
+            }}
+            onFocus={(e) => (e.currentTarget.style.borderColor = 'var(--accent)')}
+            onBlur={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}
           />
         </div>
-        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          {/* Undo / Redo 버튼 */}
-          <div style={{ display: 'flex', gap: 4, marginRight: 8 }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {/* Undo / Redo */}
+          <div style={{ display: 'flex', gap: 4, padding: 3, background: 'var(--bg)', borderRadius: 8 }}>
             <button
+              type="button"
               onClick={history.undo}
               disabled={!history.canUndo}
               title="실행 취소 (Ctrl+Z)"
               style={{
-                width: 36,
-                height: 36,
+                width: 30,
+                height: 30,
                 padding: 0,
-                fontSize: 16,
-                background: history.canUndo ? '#fff' : '#f3f4f6',
-                color: history.canUndo ? '#374151' : '#9ca3af',
-                border: '1px solid #e5e7eb',
-                borderRadius: 8,
+                fontSize: 15,
+                background: 'transparent',
+                color: history.canUndo ? 'var(--text)' : 'var(--text-subtle)',
+                border: 0,
+                borderRadius: 6,
                 cursor: history.canUndo ? 'pointer' : 'not-allowed',
+                opacity: history.canUndo ? 1 : 0.4,
               }}
             >
               ↶
             </button>
             <button
+              type="button"
               onClick={history.redo}
               disabled={!history.canRedo}
               title="다시 실행 (Ctrl+Y / Ctrl+Shift+Z)"
               style={{
-                width: 36,
-                height: 36,
+                width: 30,
+                height: 30,
                 padding: 0,
-                fontSize: 16,
-                background: history.canRedo ? '#fff' : '#f3f4f6',
-                color: history.canRedo ? '#374151' : '#9ca3af',
-                border: '1px solid #e5e7eb',
-                borderRadius: 8,
+                fontSize: 15,
+                background: 'transparent',
+                color: history.canRedo ? 'var(--text)' : 'var(--text-subtle)',
+                border: 0,
+                borderRadius: 6,
                 cursor: history.canRedo ? 'pointer' : 'not-allowed',
+                opacity: history.canRedo ? 1 : 0.4,
               }}
             >
               ↷
             </button>
           </div>
 
-          {/* 단축키 도움말 (호버 시) */}
+          {/* 단축키 도움말 */}
           <div
             title={
               '단축키:\n' +
@@ -429,15 +472,15 @@ function BuilderInterface() {
               '· Esc / Enter : 선택 해제'
             }
             style={{
-              width: 36,
-              height: 36,
+              width: 32,
+              height: 32,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontSize: 14,
-              background: '#fff',
-              color: '#6b7280',
-              border: '1px solid #e5e7eb',
+              fontSize: 13,
+              background: 'transparent',
+              color: 'var(--text-subtle)',
+              border: '1px solid var(--border)',
               borderRadius: 8,
               cursor: 'help',
               marginRight: 4,
@@ -447,44 +490,89 @@ function BuilderInterface() {
           </div>
 
           <button
+            type="button"
             onClick={handleOpenPreview}
             disabled={isGeneratingPreview || isSaving}
             style={{
-              padding: '8px 20px',
-              fontSize: '14px',
-              fontWeight: 600,
-              background: '#fff',
-              color: '#2563eb',
-              border: '1px solid #2563eb',
-              borderRadius: '8px',
+              padding: '9px 18px',
+              fontSize: 13,
+              fontWeight: 700,
+              background: 'var(--accent)',
+              color: '#fff',
+              border: 0,
+              borderRadius: 8,
               cursor: isGeneratingPreview || isSaving ? 'not-allowed' : 'pointer',
               opacity: isGeneratingPreview || isSaving ? 0.5 : 1,
+              boxShadow: '0 1px 2px rgba(37, 99, 235, 0.3)',
+              letterSpacing: '-0.01em',
             }}
           >
-            {isGeneratingPreview ? '미리보기 생성 중...' : '👁 미리보기 후 저장'}
+            {isGeneratingPreview ? '미리보기 생성 중…' : '👁 미리보기 후 저장'}
           </button>
         </div>
       </div>
 
-      {/* 3-Pane CSS Grid Wrapper */}
-      <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr 380px', flex: 1, overflow: 'hidden' }}>
-        
-        <BuilderSidebar 
+      {/* 3-Pane Flex Wrapper — sidebar / canvas / props 각자 너비 관리 */}
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+
+        <BuilderSidebar
           sections={sections}
           activeSegmentId={activeSegmentId}
-          onAddSection={handleAddSection} 
+          onAddSection={handleAddSection}
           onSelect={setActiveSegmentId}
           onMoveUp={handleMoveUp}
           onMoveDown={handleMoveDown}
           onDelete={handleDelete}
         />
 
-        <div style={{ overflow: 'auto', padding: '40px', background: '#f4f5f7', display: 'flex', justifyContent: 'center', alignItems: 'flex-start' }} onClick={() => setActiveSegmentId(null)}>
-          <div id="capture-area" style={{ width: '800px', background: 'white', boxShadow: '0 4px 24px rgba(0,0,0,0.08)', minHeight: '200px', display: 'flex', flexDirection: 'column' }}>
-            {isFetching ? <div style={{ padding: '2rem', textAlign: 'center', color: '#999' }}>로딩 중...</div> : ''}
+        <div
+          style={{
+            flex: 1,
+            overflow: 'auto',
+            padding: 40,
+            background: 'var(--bg)',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'flex-start',
+          }}
+          onClick={() => setActiveSegmentId(null)}
+        >
+          <div
+            id="capture-area"
+            style={{
+              width: 800,
+              background: '#fff',
+              boxShadow: 'var(--shadow-lg)',
+              borderRadius: sections.length === 0 ? 12 : 0,
+              minHeight: 320,
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
+            {isFetching ? (
+              <div style={{ padding: 60, textAlign: 'center', color: 'var(--text-subtle)', fontSize: 13 }}>
+                불러오는 중…
+              </div>
+            ) : ''}
             {sections.length === 0 && !isFetching && (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '200px', color: '#9ca3af', fontSize: '14px' }}>
-                영역을 추가하여 시작하세요.
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  minHeight: 320,
+                  padding: '40px 20px',
+                  textAlign: 'center',
+                }}
+              >
+                <div style={{ fontSize: 40, marginBottom: 14, opacity: 0.5 }}>📄</div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>
+                  영역을 추가해 페이지를 시작하세요
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.6 }}>
+                  좌측 사이드바에서 메인 비주얼 · 쿠폰 · 상품 영역을 골라 추가할 수 있어요.
+                </div>
               </div>
             )}
             {sections.map((section) => (

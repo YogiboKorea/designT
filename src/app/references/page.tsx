@@ -436,7 +436,9 @@ const S: Record<string, CSSProperties> = {
   filterRow: { display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' },
   filterChip: {
     padding: '6px 12px',
-    border: '1px solid #d1d5db',
+    borderWidth: 1,
+    borderStyle: 'solid',
+    borderColor: '#d1d5db',
     borderRadius: 16,
     background: '#fff',
     fontSize: 12,

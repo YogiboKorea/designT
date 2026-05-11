@@ -188,21 +188,12 @@ export default function BannerBuilderShell({
                       <div style={S.actionDesc}>
                         캔버스 에디터 진입. 좌측 도구에서 "프롬프트로 이미지 생성" 모달 사용 가능.
                       </div>
-                      <div style={S.actionTagNew}>v4.6 신규</div>
                     </Link>
                   );
                 }
 
-                return (
-                  <div style={{ ...S.actionCard, ...S.actionCardDisabled }}>
-                    <div style={S.actionEmoji}>🖌️</div>
-                    <div style={S.actionTitle}>비주얼 제작기</div>
-                    <div style={S.actionDesc}>
-                      준비 중입니다.
-                    </div>
-                    <div style={S.actionTagMuted}>준비 중</div>
-                  </div>
-                );
+                // 비주얼 제작기 미지원 사이즈에서는 카드 자체를 숨김 (이전 "준비 중" placeholder 제거)
+                return null;
               })()}
             </div>
           </section>

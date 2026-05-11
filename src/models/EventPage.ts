@@ -1,14 +1,20 @@
-import mongoose, { Schema, Document } from 'mongoose';
+import mongoose, { Schema, Document, Model } from 'mongoose';
 
-export type EventType = 'event' | 'banner';
+export type EventType = 'event' | 'banner' | 'page';
 
 export interface IEventPage extends Document {
+  /**
+   * cafe24 mall id — ychat 서버가 events 조회 시 `findOne({_id, mallId})` 로 필터링하므로 필수.
+   * 옵션 A(ychat 통합) 배포 환경에서 widget.js 가 라이브에서 정상적으로 fetch 하도록 함께 저장.
+   */
+  mallId: string;
   title: string;
   sections: any[];
   imageUrl?: string;
   /**
    * 'event'  = 메인 이벤트 페이지 (여러 섹션 조합)
    * 'banner' = 메인비주얼 배너 (웹/모바일 쌍)
+   * 'page'   = 페이지 개발 템플릿 (긴 세로 상세 페이지)
    */
   eventType: EventType;
   /**
@@ -20,11 +26,25 @@ export interface IEventPage extends Document {
   referenceTags: string[];
   /** 레퍼런스 메모 */
   referenceNote: string;
+  /**
+   * 이벤트 전체에 적용할 cafe24 쿠폰 번호 배열.
+   * widget.js 의 data-coupon-nos 로 전달되어 상품 가격을
+   * 쿠폰 할인가(benefit_price) 로 표시하는 용도.
+   */
+  couponNos: string[];
   createdAt: Date;
   updatedAt: Date;
 }
 
+const DEFAULT_MALL_ID = process.env.NEXT_PUBLIC_CAFE24_MALL_ID || process.env.CAFE24_MALLID || 'yogibo';
+
 const EventPageSchema: Schema = new Schema({
+  mallId: {
+    type: String,
+    required: true,
+    default: DEFAULT_MALL_ID,
+    index: true,
+  },
   title: {
     type: String,
     required: true,
@@ -39,7 +59,7 @@ const EventPageSchema: Schema = new Schema({
   },
   eventType: {
     type: String,
-    enum: ['event', 'banner'],
+    enum: ['event', 'banner', 'page'],
     default: 'event',
     index: true,
   },
@@ -57,19 +77,27 @@ const EventPageSchema: Schema = new Schema({
     type: String,
     default: '',
   },
+  couponNos: {
+    type: [String],
+    default: [],
+  },
 }, {
   timestamps: true,
 });
 
-// HMR(Hot Module Reload) 환경에서 기존 캐시된 스키마가 남아있으면
-// 신규 필드(isReference 등)가 반영되지 않기 때문에, 모델이 있을 경우 제거 후 재생성.
-if ((mongoose.models as any).EventPage) {
-  delete (mongoose.models as any).EventPage;
-  try {
-    (mongoose as any).deleteModel && (mongoose as any).deleteModel('EventPage');
-  } catch {
-    /* noop */
-  }
+// EventPage 만 ychat 과 동일한 'yogibo' DB 의 'eventTemple' 컬렉션을 사용.
+// 다른 모델(References, Products 등) 은 mongodb.ts 기본 연결(URI 의 /test)을 그대로 사용.
+//
+// useDb('yogibo', { useCache: true }) 는 동일 connection pool 위에 child connection 을
+// 만들어 다른 DB 를 가리키게 함. 별도 connect 호출 불필요.
+const yogiboConn = mongoose.connection.useDb('yogibo', { useCache: true });
+
+// HMR 환경에서 기존 모델 캐시가 남아있으면 신규 필드가 반영 안 되니 제거 후 재등록.
+if ((yogiboConn.models as Record<string, unknown>).EventPage) {
+  try { (yogiboConn as any).deleteModel?.('EventPage'); } catch { /* noop */ }
 }
 
-export default mongoose.model<IEventPage>('EventPage', EventPageSchema, 'design');
+const EventPage: Model<IEventPage> =
+  yogiboConn.model<IEventPage>('EventPage', EventPageSchema, 'eventTemple');
+
+export default EventPage;

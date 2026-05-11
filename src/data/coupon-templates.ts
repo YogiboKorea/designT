@@ -361,6 +361,107 @@ const TPL_MODERN_MONO: CouponTemplate = {
   ],
 };
 
+// ════════════════════════════════════════════════════════════════
+// 9. 📜 빈티지 세피아 — 따뜻한 베이지/브라운, 클래식·아날로그
+// ════════════════════════════════════════════════════════════════
+const TPL_VINTAGE_SEPIA: CouponTemplate = {
+  id: 'coupon-vintage-sepia',
+  name: '📜 빈티지 세피아',
+  description: '클래식 베이지·브라운, 카페·도서·라이프스타일',
+  bgColor: '#f5ebd9',
+  bgGradient: 'linear-gradient(135deg, #f5ebd9 0%, #e7d4b3 100%)',
+  thumbnail: `<svg viewBox="0 0 100 60" xmlns="http://www.w3.org/2000/svg">
+    <defs><linearGradient id="vs-bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f5ebd9"/><stop offset="1" stop-color="#e7d4b3"/></linearGradient></defs>
+    <rect width="100" height="60" fill="url(#vs-bg)"/>
+    <text x="50" y="14" text-anchor="middle" fill="#5b3a1e" font-size="6" font-weight="700" letter-spacing="2">SINCE 2015</text>
+    <rect x="14" y="22" width="72" height="14" rx="2" fill="#fff8eb" stroke="#5b3a1e"/>
+    <text x="50" y="32" text-anchor="middle" fill="#5b3a1e" font-size="5" font-weight="700">15% OFF</text>
+    <rect x="14" y="40" width="72" height="14" rx="2" fill="#fff8eb" stroke="#5b3a1e"/>
+    <text x="50" y="50" text-anchor="middle" fill="#5b3a1e" font-size="5" font-weight="700">FREE GIFT</text>
+  </svg>`,
+  texts: [
+    { id: sid('text', 1), text: 'Heritage Sale', position: { x: 200, y: 36 },
+      style: { color: '#5b3a1e', fontSize: 34, fontWeight: 800, textAlign: 'center', width: 400, letterSpacing: 2 } },
+    { id: sid('text', 2), text: '오래도록 사랑받는 클래식 혜택', position: { x: 180, y: 88 },
+      style: { color: '#8b5a2b', fontSize: 14, fontWeight: 500, textAlign: 'center', width: 440, letterSpacing: 1 } },
+  ],
+  coupons: [
+    { id: sid('cp', 1), label: 'HERITAGE', name: '단골 회원 15% 즉시할인', link: '#',
+      shape: 'classic', borderStyle: 'solid',
+      labelColor: '#5b3a1e', nameColor: '#3e2811', couponBgColor: '#fff8eb', couponWidth: 470 },
+    { id: sid('cp', 2), label: 'GIFT', name: '구매 시 빈티지 엽서 동봉', link: '#',
+      shape: 'classic', borderStyle: 'solid',
+      labelColor: '#5b3a1e', nameColor: '#3e2811', couponBgColor: '#fff8eb', couponWidth: 470 },
+  ],
+};
+
+// ════════════════════════════════════════════════════════════════
+// 10. 🌃 사이버 네온 — 다크 + 네온 컬러, 게이밍·테크·MZ
+// ════════════════════════════════════════════════════════════════
+const TPL_CYBER_NEON: CouponTemplate = {
+  id: 'coupon-cyber-neon',
+  name: '🌃 사이버 네온',
+  description: '다크 + 네온 그라데이션, 테크·게이밍·디지털',
+  bgColor: '#0a0a1f',
+  bgGradient: 'linear-gradient(135deg, #0a0a1f 0%, #1a0a2e 50%, #0a1f1f 100%)',
+  thumbnail: `<svg viewBox="0 0 100 60" xmlns="http://www.w3.org/2000/svg">
+    <rect width="100" height="60" fill="#0a0a1f"/>
+    <text x="50" y="14" text-anchor="middle" fill="#22d3ee" font-size="7" font-weight="900">CYBER DROP</text>
+    <rect x="14" y="22" width="72" height="14" rx="2" fill="#0f1923" stroke="#22d3ee"/>
+    <text x="50" y="32" text-anchor="middle" fill="#22d3ee" font-size="5" font-weight="800">35% OFF</text>
+    <rect x="14" y="40" width="72" height="14" rx="2" fill="#0f1923" stroke="#f472b6"/>
+    <text x="50" y="50" text-anchor="middle" fill="#f472b6" font-size="5" font-weight="800">FLASH 10K</text>
+  </svg>`,
+  texts: [
+    { id: sid('text', 1), text: 'CYBER DROP', position: { x: 200, y: 32 },
+      style: { color: '#22d3ee', fontSize: 42, fontWeight: 900, textAlign: 'center', width: 400, letterSpacing: 2, textShadow: '0 0 20px rgba(34,211,238,0.7)' } },
+    { id: sid('text', 2), text: '⚡ 한정 수량 · 코드 입력 즉시 적용', position: { x: 180, y: 90 },
+      style: { color: '#f472b6', fontSize: 14, fontWeight: 600, textAlign: 'center', width: 440, letterSpacing: 1 } },
+  ],
+  coupons: [
+    { id: sid('cp', 1), label: '⚡ CYBER35', name: '전 상품 35% 즉시할인', link: '#',
+      shape: 'classic', borderStyle: 'solid',
+      labelColor: '#22d3ee', nameColor: '#e0f2fe', couponBgColor: '#0f1923', couponWidth: 470 },
+    { id: sid('cp', 2), label: '💖 FLASH10K', name: '깜짝 10,000원 즉시할인', link: '#',
+      shape: 'classic', borderStyle: 'solid',
+      labelColor: '#f472b6', nameColor: '#fce7f3', couponBgColor: '#0f1923', couponWidth: 470 },
+  ],
+};
+
+// ════════════════════════════════════════════════════════════════
+// 11. 🌸 소프트 파스텔 — 부드러운 크림/핑크, 패션·뷰티·키즈
+// ════════════════════════════════════════════════════════════════
+const TPL_SOFT_PASTEL_CREAM: CouponTemplate = {
+  id: 'coupon-soft-pastel-cream',
+  name: '🌸 소프트 파스텔',
+  description: '부드러운 크림/핑크, 패션·뷰티·키즈·플로럴',
+  bgColor: '#fff5f5',
+  bgGradient: 'linear-gradient(135deg, #fff5f5 0%, #ffe4e1 60%, #fde2ff 100%)',
+  thumbnail: `<svg viewBox="0 0 100 60" xmlns="http://www.w3.org/2000/svg">
+    <defs><linearGradient id="sp-bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff5f5"/><stop offset="1" stop-color="#fde2ff"/></linearGradient></defs>
+    <rect width="100" height="60" fill="url(#sp-bg)"/>
+    <text x="50" y="14" text-anchor="middle" fill="#d946a8" font-size="6" font-weight="800">SWEET DAYS</text>
+    <rect x="14" y="22" width="72" height="14" rx="7" fill="#ffffff"/>
+    <text x="50" y="32" text-anchor="middle" fill="#d946a8" font-size="5" font-weight="700">20% OFF</text>
+    <rect x="14" y="40" width="72" height="14" rx="7" fill="#ffffff"/>
+    <text x="50" y="50" text-anchor="middle" fill="#d946a8" font-size="5" font-weight="700">+SAMPLES</text>
+  </svg>`,
+  texts: [
+    { id: sid('text', 1), text: 'Sweet Days 🌸', position: { x: 200, y: 34 },
+      style: { color: '#d946a8', fontSize: 36, fontWeight: 800, textAlign: 'center', width: 400, letterSpacing: -0.5 } },
+    { id: sid('text', 2), text: '오늘만큼은 나에게 달콤한 혜택을', position: { x: 180, y: 88 },
+      style: { color: '#e879c0', fontSize: 14, fontWeight: 500, textAlign: 'center', width: 440 } },
+  ],
+  coupons: [
+    { id: sid('cp', 1), label: '🌷 SWEET20', name: '오늘 하루 전 상품 20% 할인', link: '#',
+      shape: 'badge', borderStyle: 'none',
+      labelColor: '#d946a8', nameColor: '#86195e', couponBgColor: '#ffffff', couponWidth: 470 },
+    { id: sid('cp', 2), label: '✨ SAMPLES', name: '구매 시 시그니처 샘플 3종 증정', link: '#',
+      shape: 'badge', borderStyle: 'none',
+      labelColor: '#d946a8', nameColor: '#86195e', couponBgColor: '#ffffff', couponWidth: 470 },
+  ],
+};
+
 // ────────────────────────────────────────────────────────────────
 export const COUPON_TEMPLATES: CouponTemplate[] = [
   TPL_SPRING_COUPON,
@@ -371,6 +472,9 @@ export const COUPON_TEMPLATES: CouponTemplate[] = [
   TPL_OCEAN_BLUE,
   TPL_VIVID_POP,
   TPL_MODERN_MONO,
+  TPL_VINTAGE_SEPIA,
+  TPL_CYBER_NEON,
+  TPL_SOFT_PASTEL_CREAM,
 ];
 
 export const getCouponTemplateById = (id: string): CouponTemplate | undefined =>

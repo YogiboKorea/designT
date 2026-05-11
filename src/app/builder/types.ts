@@ -129,7 +129,7 @@ export interface ProductItem {
   subtitleColor?: string;
 }
 
-export type SectionData = 
+export type SectionData =
   | { type: 'main'; id: string; bgImage: string; texts: TextItem[];
       /** 적용된 템플릿 ID (없으면 빈 캔버스) */
       templateId?: string;
@@ -137,6 +137,14 @@ export type SectionData =
       stickers?: StickerItem[];
       /** 템플릿 변수 값 (예: { discount: 40, startDate: '04.23' }) */
       templateVars?: Record<string, string | number>;
+      /** 레이아웃 프리셋 ID (기본/A/E/F) — bgColor + texts 한 번에 세팅 시 적용 */
+      presetId?: string;
+      /** 단색 / CSS gradient 배경. bgImage 가 없을 때 캔버스 배경으로 사용 */
+      bgColor?: string;
+      /** 섹션 높이(px) — 프리셋이 명시. 미지정 시 컨텐츠 기준 자동. */
+      height?: number;
+      /** 프리셋의 장식 SVG (라운드 웨이브, 별 등). bgColor 위 / 텍스트 아래 z-index */
+      decorations?: string;
     }
   | { type: 'coupon'; id: string; bgColor: string; bgImage: string; coupons: CouponItem[]; texts: TextItem[];
       /** 적용된 쿠폰 템플릿 ID */

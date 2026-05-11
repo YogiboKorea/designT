@@ -1,19 +1,18 @@
 'use client';
 /**
- * /prompt-builder — AI 이미지 생성 프롬프트 빌더
+ * /prompt-builder — ChatGPT 4o (GPT-Image-1) 전용 이미지 프롬프트 빌더
  *
  * 흐름:
  *   1. 캠페인 양식 선택 (시즌세일/기념일/신상/쿠폰/이벤트)
  *   2. 양식별 필드 채우기
- *   3. 참고 레퍼런스 선택 (등록된 갤러리에서 + 새 업로드)
- *   4. 타겟 도구 선택 (ChatGPT/Midjourney/Gemini/fal.ai/NanoBanana)
- *   5. ✨ 프롬프트 생성 → Claude 가 정교화
- *   6. 📋 복사 → 🚀 외부 도구 바로가기
+ *   3. (선택) 라이브러리 제품 또는 대표 이미지 첨부
+ *   4. 출력 비율 선택
+ *   5. ✨ 프롬프트 생성 → Claude Haiku 가 정교화 (한글 카피 그대로 포함)
+ *   6. 📋 복사 → 🚀 ChatGPT 새 탭에 붙여넣기
  */
 import { useState, useEffect, CSSProperties } from 'react';
 import {
   CAMPAIGN_TEMPLATES,
-  TARGET_TOOLS,
   ASPECT_RATIOS,
   PRODUCT_CATEGORIES,
   USAGE_SCENES,
@@ -29,6 +28,7 @@ import {
   type FieldDef,
 } from '../../data/campaign-templates';
 import AppShell from '@/components/AppShell';
+import Cafe24ThumbnailPicker from '@/components/Cafe24ThumbnailPicker';
 interface ReferenceItem {
   _id: string;
   title: string;
@@ -66,11 +66,13 @@ export default function PromptBuilderPage() {
   }, []);
 
   // ── 4. 도구 / 비율 ─────────────────────────────────
-  const [targetTool, setTargetTool] = useState<string>('chatgpt');
+  // ChatGPT 4o (GPT-Image-1) 고정 — 한글 카피를 그대로 렌더링하기 위해
+  const targetTool = 'chatgpt';
   const [aspectRatio, setAspectRatio] = useState<string>('1920x680');
 
-  // ── 4.5. 대표 이미지 (FTP 업로드 → URL) ────────────
+  // ── 4.5. 대표 이미지 (FTP 업로드 → URL / cafe24 썸네일) ────────────
   const [mainImageUrl, setMainImageUrl] = useState<string>('');
+  const [cafe24PickerOpen, setCafe24PickerOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string>('');
 
@@ -182,6 +184,9 @@ export default function PromptBuilderPage() {
   const [resultMainImageUrl, setResultMainImageUrl] = useState<string>('');
   const [errorMsg, setErrorMsg] = useState<string>('');
   const [copied, setCopied] = useState(false);
+
+  // 고급 옵션 접힘/펼침
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const updateField = (key: string, value: any) => {
     setFields((prev) => ({ ...prev, [key]: value }));
@@ -327,7 +332,8 @@ export default function PromptBuilderPage() {
       const json = await res.json();
       if (!json.ok) throw new Error(json.message || '생성 실패');
 
-      setResultPrompt(json.prompt);
+      const prompt = json.prompt as string;
+      setResultPrompt(prompt);
       setResultUsage(json.usage);
       setResultGuide(json.toolGuide ?? null);
       setResultMainImageUrl(json.mainImageUrl ?? '');
@@ -349,13 +355,6 @@ export default function PromptBuilderPage() {
     }
   };
 
-  const openTool = () => {
-    const tool = TARGET_TOOLS.find((t) => t.id === targetTool);
-    if (!tool) return;
-    copyToClipboard();
-    window.open(tool.url, '_blank');
-  };
-
   // ── 비용 표시 ──────────────────────────────────────
   const estCost = resultUsage
     ? ((resultUsage.input_tokens ?? 0) * 1 + (resultUsage.output_tokens ?? 0) * 5) /
@@ -365,18 +364,19 @@ export default function PromptBuilderPage() {
   return (
     <AppShell>      <div style={S.page}>
         <header style={S.hd}>
-          <h1 style={S.h1}>🪄 AI 이미지 프롬프트 빌더</h1>
+          <h1 style={S.h1}>✨ ChatGPT 이미지 프롬프트 생성기</h1>
           <p style={S.lead}>
-            캠페인 정보를 입력하면, Claude가 ChatGPT/Midjourney/Gemini 등에 바로
-            붙여넣을 수 있는 정교한 이미지 생성 프롬프트로 변환해드립니다.
+            캠페인 정보를 입력하면, Claude 가 ChatGPT 4o (GPT-Image-1) 에 그대로
+            붙여넣을 수 있는 한글·영문 혼합 이미지 프롬프트를 만들어드립니다.
+            한글 카피·CTA·헤드라인을 그대로 포함합니다.
           </p>
         </header>
 
-        {/* ──── Step 0: 제품 카테고리 (필수, 모든 양식 공통) ──── */}
+        {/* ──── Step 0: 제품 카테고리 + 라이브러리 (필수 — ChatGPT 에 첨부할 베이스 이미지) ──── */}
         <section style={S.section}>
           <h2 style={S.h2}>
-            📦 제품 카테고리
-            <span style={S.hint}> — Yogibo 라인업 중 어떤 제품인지 선택</span>
+            📦 제품 선택
+            <span style={S.hint}> — 라이브러리에서 제품을 고르면 ChatGPT 에 첨부할 베이스 이미지 URL 까지 자동으로 안내드립니다</span>
           </h2>
           <div style={S.productGrid}>
             {PRODUCT_CATEGORIES.map((p) => (
@@ -561,7 +561,8 @@ export default function PromptBuilderPage() {
           </div>
         </section>
 
-        {/* ──── Step 2.5: 이벤트 운영 정보 (모든 양식 공통) ──── */}
+        {/* ──── Step 2.5: 이벤트 운영 정보 — 고급 옵션 ──── */}
+        {showAdvanced && (
         <section style={S.section}>
           <h2 style={S.h2}>
             🗓️ 이벤트 운영 정보 (선택)
@@ -682,8 +683,10 @@ export default function PromptBuilderPage() {
             />
           </div>
         </section>
+        )}
 
-        {/* ──── Step 2.7: 결과 다양화 옵션 (선택) ──── */}
+        {/* ──── Step 2.7: 결과 다양화 — 고급 옵션 ──── */}
+        {showAdvanced && (
         <section style={S.section}>
           <h2 style={S.h2}>
             🎬 결과 다양화 (선택)
@@ -774,8 +777,10 @@ export default function PromptBuilderPage() {
             </div>
           )}
         </section>
+        )}
 
-        {/* ──── Step 3: 레퍼런스 선택 ──── */}
+        {/* ──── Step 3: 레퍼런스 — 고급 옵션 ──── */}
+        {showAdvanced && (
         <section style={S.section}>
           <h2 style={S.h2}>
             ③ 참고 레퍼런스 (선택)
@@ -819,14 +824,17 @@ export default function PromptBuilderPage() {
             </div>
           )}
         </section>
+        )}
 
-        {/* ──── Step 3.5: 대표 이미지 업로드 (선택) ──── */}
+        {/* ──── Step 3.5: 대표 이미지 — 라이브러리 제품이 자동 베이스가 되므로 보조용 ──── */}
         <section style={S.section}>
           <h2 style={S.h2}>
             ④ 대표 이미지 첨부 (선택)
             <span style={S.hint}>
               {' '}
-              — 보존하고 싶은 메인 사진 (모델, 제품 등). 업로드하면 FTP에 저장되고 URL이 프롬프트에 포함됩니다.
+              — {selectedProduct
+                ? `현재 "${selectedProduct.nameKr}" 사진이 자동으로 베이스로 사용 중. 다른 사진을 쓰고 싶을 때만 업로드.`
+                : '라이브러리에서 제품을 안 골랐을 때만 필요. 골랐다면 그 제품 사진이 자동 베이스가 됩니다.'}
             </span>
           </h2>
 
@@ -840,23 +848,41 @@ export default function PromptBuilderPage() {
                 style={{ display: 'none' }}
                 id="main-image-upload"
               />
-              <label
-                htmlFor="main-image-upload"
-                style={{
-                  ...S.uploadLabel,
-                  ...(uploading ? S.uploadLabelDisabled : {}),
-                }}
-              >
-                {uploading ? (
-                  <>⏳ FTP 업로드 중...</>
-                ) : (
-                  <>
-                    <span style={{ fontSize: 28 }}>📎</span>
-                    <span style={S.uploadText}>이미지 선택 또는 드래그</span>
-                    <span style={S.uploadSub}>JPG, PNG, WEBP 지원</span>
-                  </>
-                )}
-              </label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                <label
+                  htmlFor="main-image-upload"
+                  style={{
+                    ...S.uploadLabel,
+                    ...(uploading ? S.uploadLabelDisabled : {}),
+                  }}
+                >
+                  {uploading ? (
+                    <>⏳ FTP 업로드 중...</>
+                  ) : (
+                    <>
+                      <span style={{ fontSize: 28 }}>📎</span>
+                      <span style={S.uploadText}>이미지 선택 또는 드래그</span>
+                      <span style={S.uploadSub}>JPG, PNG, WEBP 지원</span>
+                    </>
+                  )}
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setCafe24PickerOpen(true)}
+                  disabled={uploading}
+                  style={{
+                    ...S.uploadLabel,
+                    cursor: 'pointer',
+                    background: '#eff6ff',
+                    borderColor: '#bfdbfe',
+                    ...(uploading ? S.uploadLabelDisabled : {}),
+                  }}
+                >
+                  <span style={{ fontSize: 28 }}>🛒</span>
+                  <span style={{ ...S.uploadText, color: '#1e40af' }}>cafe24 썸네일 가져오기</span>
+                  <span style={{ ...S.uploadSub, color: '#3b82f6' }}>등록된 자사몰 상품에서 선택</span>
+                </button>
+              </div>
               {uploadError && <div style={S.errorBox}>❌ {uploadError}</div>}
             </div>
           ) : (
@@ -916,35 +942,16 @@ export default function PromptBuilderPage() {
           )}
         </section>
 
-        {/* ──── Step 5: 타겟 도구 + 비율 ──── */}
+        {/* ──── Step 5: 출력 사이즈 (ChatGPT 에 알려줄 권장 비율) ──── */}
         <section style={S.section}>
-          <h2 style={S.h2}>⑤ 출력 도구 / 사이즈</h2>
-          <div style={S.toolGrid}>
-            {TARGET_TOOLS.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => setTargetTool(t.id)}
-                style={{
-                  ...S.toolCard,
-                  ...(t.id === targetTool ? S.toolCardActive : {}),
-                }}
-              >
-                <div style={S.toolEmoji}>{t.emoji}</div>
-                <div style={S.toolName}>{t.name}</div>
-                <div style={S.toolDesc}>{t.description}</div>
-              </button>
-            ))}
-          </div>
-
-          <div style={{ marginTop: 16 }}>
-            <label style={S.fieldLabel}>출력 사이즈 (몰별 권장)</label>
+          <h2 style={S.h2}>⑤ 출력 사이즈</h2>
+          <div>
+            <label style={S.fieldLabel}>비율 / 사이즈 (ChatGPT 프롬프트에 그대로 포함됨)</label>
             <select
               value={aspectRatio}
               onChange={(e) => setAspectRatio(e.target.value)}
               style={S.select}
             >
-              {/* 그룹별로 표시 */}
               {Array.from(new Set(ASPECT_RATIOS.map((r) => r.group))).map((group) => (
                 <optgroup key={group} label={group}>
                   {ASPECT_RATIOS.filter((r) => r.group === group).map((r) => (
@@ -958,6 +965,35 @@ export default function PromptBuilderPage() {
           </div>
         </section>
 
+        {/* ──── 고급 옵션 토글 — 필수 5개 다음, 생성 버튼 이전 ──── */}
+        <section style={{ ...S.section, padding: 14 }}>
+          <button
+            type="button"
+            onClick={() => setShowAdvanced((v) => !v)}
+            style={{
+              width: '100%',
+              padding: '10px 14px',
+              background: showAdvanced ? '#eff6ff' : '#f8fafc',
+              borderWidth: 1,
+              borderStyle: 'solid',
+              borderColor: showAdvanced ? '#bfdbfe' : '#e5e7eb',
+              borderRadius: 8,
+              fontSize: 13,
+              fontWeight: 700,
+              color: showAdvanced ? '#1e40af' : '#475569',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}
+          >
+            <span>{showAdvanced ? '▼ 고급 옵션 (펼침)' : '▶ 고급 옵션 (운영 정보 / 결과 다양화 / 레퍼런스)'}</span>
+            <span style={{ fontSize: 11, fontWeight: 500, opacity: 0.7 }}>
+              {showAdvanced ? '간단히 보기' : '세부 조정 필요할 때만'}
+            </span>
+          </button>
+        </section>
+
         {/* ──── Step 5: 생성 ──── */}
         <section style={S.section}>
           <button
@@ -969,15 +1005,16 @@ export default function PromptBuilderPage() {
               ...(loading ? S.generateBtnDisabled : {}),
             }}
           >
-            {loading ? '🪄 Claude 가 작성 중…' : '✨ 프롬프트 생성'}
+            {loading ? '🪄 프롬프트 작성 중…' : '✨ 프롬프트 생성'}
           </button>
 
           {errorMsg && <div style={S.errorBox}>❌ {errorMsg}</div>}
 
+          {/* 생성된 프롬프트 + 복사 / ChatGPT 열기 */}
           {resultPrompt && (
             <div style={S.resultBox}>
               <div style={S.resultHead}>
-                <span>✅ 생성된 프롬프트</span>
+                <span>📝 생성된 프롬프트 (ChatGPT 4o 에 붙여넣기)</span>
                 {resultUsage && (
                   <span style={S.resultMeta}>
                     {resultUsage.input_tokens} in / {resultUsage.output_tokens} out
@@ -1043,14 +1080,50 @@ export default function PromptBuilderPage() {
                 >
                   {copied ? '✓ 복사됨!' : '📋 프롬프트 복사'}
                 </button>
-                <button type="button" onClick={openTool} style={S.openBtn}>
-                  🚀 {TARGET_TOOLS.find((t) => t.id === targetTool)?.name} 열기
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(resultPrompt);
+                      window.open('https://chat.openai.com/?model=gpt-4o', '_blank');
+                    } catch {
+                      alert('복사 실패 — 직접 선택해 복사 후 ChatGPT 에 붙여넣어주세요.');
+                    }
+                  }}
+                  style={{
+                    padding: '10px 18px',
+                    background: '#111827',
+                    color: '#fff',
+                    border: 0,
+                    borderRadius: 8,
+                    fontSize: 13,
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                  }}
+                  title="프롬프트를 클립보드에 복사하고 ChatGPT 새 탭을 엽니다 (DALL-E 3 활용)"
+                >
+                  🚀 ChatGPT 에 붙여넣기
                 </button>
               </div>
+              <p style={{ fontSize: 11, color: '#94a3b8', marginTop: 8, lineHeight: 1.5 }}>
+                💡 ChatGPT 4o (GPT-Image-1) 가 한글 카피·CTA 를 정확히 렌더링합니다. 대표 이미지가 있다면 ChatGPT 채팅창에 직접 첨부한 뒤 위 프롬프트를 붙여넣어주세요.
+              </p>
             </div>
           )}
         </section>
       </div>
+
+      {/* cafe24 썸네일 picker — 대표 이미지 영역의 "🛒 cafe24 썸네일 가져오기" 클릭 시 열림.
+         선택된 cafe24 이미지 URL 을 대표 이미지로 그대로 사용 (cafe24 URL 은 영구적). */}
+      <Cafe24ThumbnailPicker
+        open={cafe24PickerOpen}
+        onClose={() => setCafe24PickerOpen(false)}
+        onSelect={(url) => {
+          setMainImageUrl(url);
+          setUploadError('');
+          setCafe24PickerOpen(false);
+        }}
+      />
     </AppShell>  );
 }
 
@@ -1160,7 +1233,9 @@ const S: Record<string, CSSProperties> = {
   templateCard: {
     position: 'relative',
     padding: '16px 14px',
-    border: '2px solid #e5e7eb',
+    borderWidth: 2,
+    borderStyle: 'solid',
+    borderColor: '#e5e7eb',
     borderRadius: 10,
     background: '#fff',
     cursor: 'pointer',
@@ -1301,7 +1376,9 @@ const S: Record<string, CSSProperties> = {
   },
   refCard: {
     padding: 0,
-    border: '2px solid #e5e7eb',
+    borderWidth: 2,
+    borderStyle: 'solid',
+    borderColor: '#e5e7eb',
     borderRadius: 10,
     background: '#fff',
     cursor: 'pointer',
@@ -1370,7 +1447,9 @@ const S: Record<string, CSSProperties> = {
   },
   productCard: {
     padding: '18px 14px',
-    border: '2px solid #e5e7eb',
+    borderWidth: 2,
+    borderStyle: 'solid',
+    borderColor: '#e5e7eb',
     borderRadius: 10,
     background: '#fff',
     cursor: 'pointer',
@@ -1447,7 +1526,9 @@ const S: Record<string, CSSProperties> = {
   libraryCard: {
     position: 'relative',
     padding: 0,
-    border: '2px solid #fed7aa',
+    borderWidth: 2,
+    borderStyle: 'solid',
+    borderColor: '#fed7aa',
     borderRadius: 8,
     background: '#fff',
     cursor: 'pointer',
@@ -1538,7 +1619,9 @@ const S: Record<string, CSSProperties> = {
   },
   preservationCard: {
     padding: '12px 10px',
-    border: '2px solid #e9d5ff',
+    borderWidth: 2,
+    borderStyle: 'solid',
+    borderColor: '#e9d5ff',
     borderRadius: 8,
     background: '#fff',
     cursor: 'pointer',
@@ -1668,7 +1751,9 @@ const S: Record<string, CSSProperties> = {
   },
   toolCard: {
     padding: '14px 12px',
-    border: '2px solid #e5e7eb',
+    borderWidth: 2,
+    borderStyle: 'solid',
+    borderColor: '#e5e7eb',
     borderRadius: 10,
     background: '#fff',
     cursor: 'pointer',
@@ -1822,7 +1907,9 @@ const S: Record<string, CSSProperties> = {
     padding: '10px 18px',
     background: '#fff',
     color: '#15803d',
-    border: '1px solid #bbf7d0',
+    borderWidth: 1,
+    borderStyle: 'solid',
+    borderColor: '#bbf7d0',
     borderRadius: 8,
     fontSize: 13,
     fontWeight: 700,

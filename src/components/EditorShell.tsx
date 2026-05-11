@@ -155,7 +155,7 @@ export default function EditorShell({
           <aside style={S.toolPanel}>
             <h3 style={S.toolPanelTitle}>🛠 제작 도구</h3>
             <div style={S.toolList}>
-              {DEFAULT_TOOLS.map((tool) => (
+              {DEFAULT_TOOLS.filter((tool) => tool.action !== 'soon').map((tool) => (
                 <button
                   key={tool.key}
                   type="button"
@@ -163,18 +163,13 @@ export default function EditorShell({
                   style={{
                     ...S.toolCard,
                     ...(tool.action === 'prompt-modal' ? S.toolCardPrimary : {}),
-                    ...(tool.action === 'soon' ? S.toolCardDisabled : {}),
                   }}
-                  disabled={tool.action === 'soon'}
                 >
                   <div style={S.toolEmoji}>{tool.emoji}</div>
                   <div style={S.toolLabel}>{tool.label}</div>
                   <div style={S.toolDesc}>{tool.description}</div>
                   {tool.action === 'prompt-modal' && (
                     <div style={S.toolBadge}>⭐ 추천</div>
-                  )}
-                  {tool.action === 'soon' && (
-                    <div style={S.toolBadgeMuted}>준비 중</div>
                   )}
                 </button>
               ))}

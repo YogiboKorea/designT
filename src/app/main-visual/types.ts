@@ -63,6 +63,17 @@ export function hexToRgba(hex: string, opacity: number): string {
  *               값이 있으면 `blur` 는 칠한 영역에만 적용됨.
  *               값이 없으면 `blur` 가 이미지 전체에 적용됨 (구 동작 호환).
  */
+/**
+ * Type F 전용 — 모델/제품 원형 이미지의 디테일 스타일.
+ * 두 원에 각각 적용되며 더블클릭 시 사이드바 패널에서 조절 가능.
+ */
+export interface CircleImageStyle {
+  borderWidth: number;
+  borderColor: string;
+  shadowBlur: number;
+  shadowColor?: string;
+}
+
 export interface ImageTransform {
   x: number;
   y: number;
@@ -80,11 +91,18 @@ export interface MainVisualCanvas {
    *  · "원본으로" 버튼 → bgImage = bgImageOriginal 로 복구.
    */
   bgImageOriginal?: string;
+  // Type F 전용 — 제품 사진(우상단 작은 원). bgImage 는 모델 사진(큰 원)으로 사용.
+  secondImage?: string;
+  secondImageOriginal?: string;
+  secondImageTransform?: ImageTransform;
+  // Type F 두 원의 border / shadow 등 디테일 스타일
+  modelCircleStyle?: CircleImageStyle;
+  productCircleStyle?: CircleImageStyle;
   bgColor: string;          // 배경 이미지/그라데이션 없을 때 사용
   /** true 이면 bgImage 없을 때 그라데이션을 배경으로 사용 */
   useGradient?: boolean;
   gradient?: CanvasGradient;
-  bgGraphicType?: 'A' | 'B' | 'C' | 'D' | 'E' | null;
+  bgGraphicType?: 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | null;
   /**
    * 이미지 배치 모드.
    *  - 'free' (기본) : 드래그/리사이즈로 원하는 곳에 배치 (원본 크기 시작)

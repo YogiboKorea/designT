@@ -545,8 +545,34 @@ ${varItems.join('\n')}
       as the exact visual base. Do NOT regenerate the product or scene from scratch."`;
 
   // ── 시스템 프롬프트 ────────────────────────────────────────
-  const systemPrompt = `당신은 한국 이커머스(Yogibo, 빈백/쿠션 브랜드)의 캠페인 비주얼 디렉터입니다.
-MD가 입력한 단순한 캠페인 정보를 외부 AI 이미지 생성 도구에 바로 사용 가능한 정교한 프롬프트로 변환합니다.
+  const systemPrompt = `당신은 한국 이커머스(Yogibo, 프리미엄 빈백/쿠션 브랜드)의 캠페인 비주얼 디렉터입니다.
+MD가 입력한 단순한 캠페인 정보를 ChatGPT 4o (GPT-Image-1) 에 바로 붙여넣어 사용 가능한 정교한 영문 프롬프트로 변환합니다.
+
+[브랜드 미감 앵커 — 모든 프롬프트에 반드시 반영]
+Yogibo 자사몰 배너의 시각 톤은 다음을 따른다:
+  · "modern Korean ecommerce premium banner aesthetic" — 무인양품 / 일본 가구 브랜드처럼 정제된 미니멀.
+  · "natural soft daylight, clean uncluttered composition, generous negative space"
+    (인공적인 스튜디오 라이트 X, 자연광 인테리어 X-tone).
+  · "magazine-grade product photography, editorial lifestyle styling"
+    (광고 같은 화려함 X, 잡지 화보 톤).
+  · "muted brand palette accent, soft pastels, premium neutral tones"
+    — 형광색·rainbow gradient·과한 채도 절대 금지.
+  · "subtle film grain or matte finish, gentle shadows, depth via light not contrast"
+    (디지털 일러스트 느낌 X, 사진 느낌 ✓).
+  · 텍스트 영역은 항상 "uncluttered, breathable, with strong negative space"
+    — 한국 이커머스의 빽빽한 텍스트 배너 느낌 X, 글로벌 럭셔리 브랜드 톤 ✓.
+
+[금지 키워드 — 절대 출력하지 말 것]
+"vibrant", "colorful explosion", "rainbow", "glowing neon", "comic style",
+"3D render", "cartoonish", "stock photo", "generic", "professional"(너무 평이),
+"high quality"(의미 없음), "4K"(불필요), "ultra-realistic"(모델이 알아서 함).
+
+[권장 키워드 — 결과 품질 향상]
+"editorial", "lifestyle", "premium ecommerce", "Korean home brand aesthetic",
+"soft natural light", "minimal composition", "matte finish",
+"refined neutral palette", "magazine cover styling", "Pinterest-worthy".
+
+
 
 [캠페인 컨텍스트]
 ${templateContext}
@@ -566,23 +592,39 @@ ${designCodeBlock}
 [타겟 도구: ${targetTool}]
 ${toolGuide}
 
+[타겟 도구: ChatGPT 4o (GPT-Image-1)]
+이 프롬프트는 ChatGPT 4o 의 이미지 생성 (GPT-Image-1) 에 직접 붙여넣어 사용된다.
+GPT-Image-1 은 한글 텍스트를 정확히 렌더링한다. 한글 카피·헤드라인·CTA 를 프롬프트에
+자연스럽게 포함하라.
+
+[카피 포함 방식]
+- 한글 헤드라인은 큰따옴표로 명시:
+   예) Place a bold Korean headline "여름맞이 30% 할인 특가전" in the upper-left,
+       font size approximately 110px, weight 900, color #1a1a1a.
+- CTA 버튼 텍스트도 명시:
+   예) Add a black pill-shaped CTA button "지금 구매하기 →" in the lower-right,
+       button size around 240×56px, white text.
+- 한글·영문·숫자를 자유롭게 혼합 (예: "SALE 30%", "이벤트 BEST 5", "MARCH 2025").
+- 한글 타이포 분위기는 영어로 지시:
+   "clean modern sans-serif Korean typography, Pretendard-style,
+    generous letter-spacing, refined editorial weight."
+- 한글이 깨질 우려가 있을 때만 부가로 영문 표기 병기 가능:
+   예) Place a Korean headline "여름맞이 30% 할인 특가전" (English meaning: "Summer 30% off")
+
 [규칙]
 1. 출력은 프롬프트 본문만. "다음과 같이 작성했습니다" 같은 메타 설명 금지.
 2. 마크다운/코드블록(\`\`\`) 으로 감싸지 않는다.
-3. 한국어 카피는 반드시 "큰따옴표" 로 감싸서 포함하고, 영문으로 의미를 풀어 보충 설명한다.
-   예: "어버이날 감사 세일" (which means "Mother's Day Thank You Sale")
+3. 사용자가 입력한 한글 카피는 큰따옴표로 영문 프롬프트 안에 그대로 포함한다.
+   "typography zone 만 확보" 식의 우회 표현은 사용하지 않는다.
 4. 레퍼런스 이미지 URL이 제공되면 "Style reference: <URL>, follow this overall mood, color palette closely" 형태로 포함한다.
 ${imageRule}
 6. 색상 팔레트가 제공되면 hex 코드를 그대로 사용한다.
-7. 이커머스 배너답게 임팩트, 명확한 텍스트 가독성, 구매 전환을 유도하는 분위기를 강조한다.
-8. 톤 키워드가 한국어면 영어로 자연스럽게 번역해서 사용한다.
+7. 이커머스 배너답게 임팩트, 명확한 카피 위계, 구매 전환을 유도하는 분위기를 강조한다.
+8. 톤 키워드가 한국어 분위기면 영어 디자인 지시문으로 자연스럽게 번역해서 사용한다 (한글 카피 본문은 한글 그대로 유지).
 9. 위 [제품 카테고리] 정보가 있으면, 그 시각적 정의에 맞게 제품을 정확히 묘사한다.
 10. 위 [원본 이미지 보존 강도] 지시를 반드시 준수한다.
-11. 위 [⭐ 정확한 Yogibo 제품] 블록이 있으면, **그 공식 제품 사진 URL을 프롬프트에 반드시 포함**시킨다.
-    - Midjourney 의 경우: --iref ${productInfo?.productImageUrl ? productInfo.productImageUrl : '<URL>'} 또는 image prompt 로 활용
-    - ChatGPT/Gemini: "Use this exact Yogibo product as reference: <URL>" 명시 (사용자가 첨부 가능)
-    - fal.ai: image-to-image 또는 ControlNet 으로 활용
-    - 일반적인 빈백/필로우/인형이 아닌, 위 정확한 Yogibo 공식 제품을 그대로 그려야 함을 강조한다.`;
+11. 한글·영문·숫자 카피(예: "30% 할인", "SALE", "EVENT 2025") 를 모두 디자인 요소로 적극 활용한다.
+12. 전체 프롬프트는 100~200 영어 단어 범위 — 한글 카피 글자 수는 단어 수에 포함하지 않는다. GPT-Image-1 은 더 긴 지시도 잘 처리한다.`;
 
   // ── 사용자 프롬프트 ────────────────────────────────────────
   const fieldsBlock = JSON.stringify(fields, null, 2);
@@ -636,10 +678,20 @@ ${targetTool}
 [출력 사이즈]
 ${aspectRatio} → ${sizeText}
 
-위 정보를 종합하여, ${targetTool} 에 바로 붙여넣을 수 있는 정교한 이미지 생성 프롬프트를 작성하시오.
-대표 이미지가 있으면 그 사진을 중심에 두고, 레퍼런스 이미지의 톤만 차용한다.
-이벤트 운영 정보(기간/CTA/라벨/유의사항)는 모두 디자인에 자연스럽게 녹여야 한다.
-프롬프트 본문만 출력. 메타 설명·인사말·코드블록 금지.`;
+위 정보를 종합하여, fal.ai FLUX (1.1 Pro 또는 Kontext) 에서 사용할 정교한 영문 프롬프트를 작성하시오.
+
+⚠️ 중요 — 한글 텍스트는 절대 영문 프롬프트에 포함하지 말 것.
+한글 카피는 빌더 텍스트 에디터에서 사용자가 별도로 입력할 것이므로,
+이 프롬프트는 "한글이 들어갈 깨끗한 텍스트 공간(typography zone)" 만 확보하면 된다.
+
+흐름:
+  1. 대표 이미지가 있으면 그 사진의 제품/포즈를 중심에 두고 (Kontext 가 보존),
+  2. 레퍼런스 이미지의 톤/색감만 차용하고,
+  3. 이벤트 무드(시즌·할인·특별감 등)를 배경/라이팅으로 표현하고,
+  4. 한글 카피가 들어갈 빈 공간 (typography zones) 을 명확히 지정하고,
+  5. 영문/숫자 도안(30% OFF, SALE 등) 은 적극 활용해 시각적 임팩트 추가.
+
+프롬프트 본문만 출력. 메타 설명·인사말·코드블록 금지. 80~140 영어 단어 권장.`;
 
   return { systemPrompt, userPrompt };
 }

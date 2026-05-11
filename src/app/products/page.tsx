@@ -686,7 +686,9 @@ const S: Record<string, CSSProperties> = {
   actionBtn: {
     flex: 1,
     padding: '5px',
-    border: '1px solid',
+    borderWidth: 1,
+    borderStyle: 'solid',
+    borderColor: '#d1d5db',
     borderRadius: 5,
     fontSize: 11,
     fontWeight: 600,

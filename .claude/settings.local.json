@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc *)",
+      "Bash(echo \"EXIT: $?\")",
+      "Bash(grep -l \"products/:product_no\\\\|/api/:mallId/products\" \"C:\\\\Users\\\\Yogibo Design\\\\Desktop\\\\yogiChat\\\\server.js\" \"C:\\\\Users\\\\Yogibo Design\\\\Desktop\\\\yogiChat\\\\routes\\\\legacyRoutes.js\" 2>nul)",
+      "Read(//c/Users/Yogibo Design/Desktop/yogiChat/**)"
+    ]
+  }
+}

@@ -13,6 +13,9 @@ interface MainVisualBuilderProps {
 
 export default function MainVisualBuilder({ data, onChange, isPreview = false, activeTextId, onSelectText }: MainVisualBuilderProps) {
   const { bgImage, texts, stickers = [], templateId, templateVars } = data;
+  // 프리셋 적용된 경우 bgColor / height 사용 (builder-main-presets 가 세팅)
+  const presetBgColor = data.bgColor;
+  const presetHeight = data.height;
 
   // 템플릿이 적용된 경우 배경/높이를 가져옴
   const template = templateId ? getTemplateById(templateId) : undefined;
@@ -40,6 +43,8 @@ export default function MainVisualBuilder({ data, onChange, isPreview = false, a
     ? texts.map((t) => ({ ...t, text: resolveTemplate(t.text, templateVars) }))
     : texts;
 
+  // 프리셋 적용 시 800-wide 캔버스를 그대로 사용 (쿠폰/상품 영역과 동일 사이즈).
+  const hasPreset = !!data.presetId;
   const containerStyle: React.CSSProperties = hasTemplate
     ? {
         position: 'relative',
@@ -47,6 +52,14 @@ export default function MainVisualBuilder({ data, onChange, isPreview = false, a
         height: template!.height,
         overflow: 'hidden',
         background: template!.background,
+      }
+    : hasPreset
+    ? {
+        position: 'relative',
+        width: '100%',
+        height: presetHeight ?? 600,
+        overflow: 'hidden',
+        background: presetBgColor,
       }
     : {
         position: 'relative',
@@ -58,8 +71,26 @@ export default function MainVisualBuilder({ data, onChange, isPreview = false, a
   return (
     <div style={containerStyle}>
       {/* 배경 이미지 — 템플릿 미적용 시 일반 배경 */}
-      {!hasTemplate && bgImage && (
+      {!hasTemplate && bgImage && !hasPreset && (
         <img src={bgImage} style={{ width: '100%', display: 'block', position: 'relative', zIndex: 0 }} alt="Background" />
+      )}
+
+      {/* 프리셋 + 배경 이미지 — 800-wide 캔버스를 absolute 로 덮음. 텍스트는 그 위에 absolute */}
+      {!hasTemplate && bgImage && hasPreset && (
+        <img
+          src={bgImage}
+          alt="Background"
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', zIndex: 0, pointerEvents: 'none' }}
+        />
+      )}
+
+      {/* 프리셋 장식 SVG — bgColor/bgImage 위, 텍스트 아래 */}
+      {hasPreset && data.decorations && (
+        <div
+          aria-hidden
+          style={{ position: 'absolute', inset: 0, zIndex: 1, pointerEvents: 'none' }}
+          dangerouslySetInnerHTML={{ __html: data.decorations }}
+        />
       )}
 
       {/* 템플릿 적용 + 배경 이미지

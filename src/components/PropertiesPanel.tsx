@@ -5,7 +5,8 @@ import { MAIN_VISUAL_TEMPLATES, getTemplateById } from '../data/main-visual-temp
 import { COUPON_TEMPLATES, getCouponTemplateById } from '../data/coupon-templates';
 import { PRODUCT_TEMPLATES, getProductTemplateById } from '../data/product-templates';
 import { STICKER_LIBRARY, STICKER_CATEGORIES, StickerCategory, instantiateSticker } from '../data/sticker-library';
-import PromptBuilderLink from './PromptBuilderLink';
+import Cafe24ThumbnailPicker from './Cafe24ThumbnailPicker';
+import MainVisualAssistPanel from './MainVisualAssistPanel';
 
 interface PropertiesPanelProps {
   activeSection: SectionData | null;
@@ -16,7 +17,20 @@ interface PropertiesPanelProps {
   onSelectItem?: (id: string | null) => void;
 }
 
-function FileUploader({ imageUrl, onUpload, onClear, label }: { imageUrl?: string, onUpload: (url: string) => void, onClear?: () => void, label?: string }) {
+function FileUploader({
+  imageUrl,
+  onUpload,
+  onClear,
+  label,
+  onOpenCafe24Picker,
+}: {
+  imageUrl?: string;
+  onUpload: (url: string) => void;
+  onClear?: () => void;
+  label?: string;
+  /** 있으면 "🛒 cafe24 썸네일" 버튼 노출 — 클릭 시 부모가 picker 모달을 열게 콜백 호출 */
+  onOpenCafe24Picker?: () => void;
+}) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const processFile = (file: File) => {
@@ -34,6 +48,9 @@ function FileUploader({ imageUrl, onUpload, onClear, label }: { imageUrl?: strin
       </div>
       <div className="img-actions">
         <button onClick={() => inputRef.current?.click()}>{imageUrl ? '변경' : '업로드'}</button>
+        {onOpenCafe24Picker && (
+          <button type="button" onClick={onOpenCafe24Picker}>🛒 cafe24 썸네일</button>
+        )}
         {imageUrl && onClear && <button className="danger" onClick={onClear}>삭제</button>}
       </div>
       <input type="file" accept="image/*" style={{ display: 'none' }} ref={inputRef} onChange={(e) => e.target.files?.[0] && processFile(e.target.files[0])} />
@@ -44,6 +61,10 @@ function FileUploader({ imageUrl, onUpload, onClear, label }: { imageUrl?: strin
 export default function PropertiesPanel({ activeSection, onUpdate, activeTextId, onSelectText, activeItemId, onSelectItem }: PropertiesPanelProps) {
   const setActiveTextId = onSelectText || (() => {});
   const itemRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  // cafe24 썸네일 picker — FileUploader 옆 버튼이 누르면 콜백을 저장해두고 모달을 열어둠.
+  // 사용자가 이미지 선택하면 저장된 콜백으로 url 전달.
+  const [cafe24PickerCb, setCafe24PickerCb] = useState<((url: string) => void) | null>(null);
 
   // ─────────────────────────────────────────────────────────────────
   //  🎨 템플릿 시스템 (메인 비주얼 전용)
@@ -353,7 +374,13 @@ export default function PropertiesPanel({ activeSection, onUpdate, activeTextId,
     return (
       <aside className="props">
         <div className="props-header"><h2>속성 패널</h2></div>
-        <div className="empty-msg">왼쪽 도구 목록에서 영역을 추가하거나<br/>화면 중앙의 요소를 선택하면 편집이 가능합니다.</div>
+        <div className="props-empty">
+          <div className="icon">🎯</div>
+          <div className="title">선택된 영역이 없어요</div>
+          <div className="desc">
+            좌측에서 영역을 추가하거나<br />캔버스의 요소를 클릭해 편집을 시작하세요.
+          </div>
+        </div>
       </aside>
     );
   }
@@ -483,9 +510,9 @@ export default function PropertiesPanel({ activeSection, onUpdate, activeTextId,
     const currentTemplate = data.templateId ? getTemplateById(data.templateId) : undefined;
 
     return (
-      <div>
-        {/* ━━━ 🎨 템플릿 선택 ━━━ */}
-        <div className="prop-group">
+      <div style={{ display: 'flex', flexDirection: 'column' }}>
+        {/* ━━━ 🎨 템플릿 선택 ━━━ (order: 3 — 맨 아래) */}
+        <div className="prop-group" style={{ order: 3 }}>
           <div className="prop-group-title">🎨 디자인 템플릿</div>
 
           {currentTemplate ? (
@@ -615,7 +642,8 @@ export default function PropertiesPanel({ activeSection, onUpdate, activeTextId,
                             fontWeight: 600,
                             background: stickerCategory === cat.key ? '#6366f1' : '#fff',
                             color: stickerCategory === cat.key ? '#fff' : '#6b7280',
-                            border: '1px solid',
+                            borderWidth: 1,
+                            borderStyle: 'solid',
                             borderColor: stickerCategory === cat.key ? '#6366f1' : '#e5e7eb',
                             borderRadius: 5,
                             cursor: 'pointer',
@@ -803,8 +831,8 @@ export default function PropertiesPanel({ activeSection, onUpdate, activeTextId,
           )}
         </div>
 
-        {/* ━━━ 배경 이미지 (템플릿 적용 시 보조용 / 미적용 시 메인용 / 미니멀 템플릿일 땐 필수) ━━━ */}
-        <div className="prop-group">
+        {/* ━━━ 배경 이미지 (order: 1 — 최상단) ━━━ */}
+        <div className="prop-group" style={{ order: 1 }}>
           <div className="prop-group-title">
             배경 이미지
             {currentTemplate && currentTemplate.id === 'minimal' && (
@@ -822,6 +850,9 @@ export default function PropertiesPanel({ activeSection, onUpdate, activeTextId,
             imageUrl={data.bgImage}
             onUpload={(url) => onUpdate({ ...data, bgImage: url })}
             onClear={() => onUpdate({ ...data, bgImage: '' })}
+            onOpenCafe24Picker={() =>
+              setCafe24PickerCb(() => (url: string) => onUpdate({ ...data, bgImage: url }))
+            }
           />
         </div>
 
@@ -830,9 +861,9 @@ export default function PropertiesPanel({ activeSection, onUpdate, activeTextId,
          *    필요 시 위쪽의 핸들러 주석 블록과 함께 살리면 복원 가능.
          */}
 
-        {/* 템플릿 없는 상태에서도 스티커 라이브러리 사용 가능 */}
+        {/* 템플릿 없는 상태에서도 스티커 라이브러리 사용 가능 (order: 2 — 배경 이미지 아래 / 템플릿 위) */}
         {!currentTemplate && (
-          <div className="prop-group">
+          <div className="prop-group" style={{ order: 2 }}>
             <div className="prop-group-title">🎨 스티커 ({(data.stickers ?? []).length})</div>
             <button
               onClick={() => setStickerLibraryOpen((v) => !v)}
@@ -875,7 +906,8 @@ export default function PropertiesPanel({ activeSection, onUpdate, activeTextId,
                         fontWeight: 600,
                         background: stickerCategory === cat.key ? '#6366f1' : '#fff',
                         color: stickerCategory === cat.key ? '#fff' : '#6b7280',
-                        border: '1px solid',
+                        borderWidth: 1,
+                        borderStyle: 'solid',
                         borderColor: stickerCategory === cat.key ? '#6366f1' : '#e5e7eb',
                         borderRadius: 5,
                         cursor: 'pointer',
@@ -1309,6 +1341,9 @@ export default function PropertiesPanel({ activeSection, onUpdate, activeTextId,
                       imageUrl={p.image}
                       onUpload={(url) => handleUpdateProduct(p.id, 'image', url)}
                       onClear={() => handleUpdateProduct(p.id, 'image', '')}
+                      onOpenCafe24Picker={() =>
+                        setCafe24PickerCb(() => (url: string) => handleUpdateProduct(p.id, 'image', url))
+                      }
                     />
 
                     {/* ━━━ 상품명 + 폰트 옵션 ━━━ */}
@@ -1547,10 +1582,26 @@ export default function PropertiesPanel({ activeSection, onUpdate, activeTextId,
       <div className="props-header">
         <h2>{activeSection.type === 'main' ? '메인 비주얼 속성' : activeSection.type === 'coupon' ? '쿠폰 속성' : '상품 속성'}</h2>
       </div>
-      <PromptBuilderLink sectionType={activeSection.type} />
+      {/* main 섹션은 어시스턴트 패널(AI 자동 처리 + 프리셋). 쿠폰/상품 섹션은 디자인 템플릿만 보여줌 (프롬프트 빌더 카드 제거). */}
+      {activeSection.type === 'main' && (
+        <MainVisualAssistPanel
+          data={activeSection as Extract<SectionData, { type: 'main' }>}
+          onChange={(next) => onUpdate(next)}
+        />
+      )}
       {activeSection.type === 'main' && renderMainVisualProps(activeSection as any)}
       {activeSection.type === 'coupon' && renderCouponProps(activeSection as any)}
       {activeSection.type === 'product' && renderProductProps(activeSection as any)}
+
+      {/* cafe24 썸네일 picker 모달 — FileUploader 옆 "🛒 cafe24 썸네일" 클릭 시 열림 */}
+      <Cafe24ThumbnailPicker
+        open={cafe24PickerCb !== null}
+        onClose={() => setCafe24PickerCb(null)}
+        onSelect={(url) => {
+          cafe24PickerCb?.(url);
+          setCafe24PickerCb(null);
+        }}
+      />
     </aside>
   );
 }

@@ -379,6 +379,107 @@ const TPL_MODERN_MINIMAL: ProductTemplate = {
   ],
 };
 
+// ════════════════════════════════════════════════════════════════
+// 9. 🌃 사이버 네온 — 다크 + 네온 액센트, 테크·디지털·게이밍
+// ════════════════════════════════════════════════════════════════
+const TPL_CYBER_NEON: ProductTemplate = {
+  id: 'product-cyber-neon',
+  name: '🌃 사이버 네온',
+  description: '다크 + 네온 그라데이션, 테크·게이밍·MZ',
+  layout: 'uniform',
+  columns: 2,
+  bgColor: '#0a0a1f',
+  bgGradient: 'linear-gradient(135deg, #0a0a1f 0%, #1a0a2e 50%, #0a1f2e 100%)',
+  paddingTop: 100,
+  paddingBottom: 90,
+  thumbnail: `<svg viewBox="0 0 100 60" xmlns="http://www.w3.org/2000/svg">
+    <rect width="100" height="60" fill="#0a0a1f"/>
+    <text x="50" y="10" text-anchor="middle" fill="#22d3ee" font-size="5" font-weight="900">NEXT DROP</text>
+    <rect x="10" y="16" width="38" height="38" rx="2" fill="#0f1923" stroke="#22d3ee"/>
+    <rect x="52" y="16" width="38" height="38" rx="2" fill="#0f1923" stroke="#f472b6"/>
+  </svg>`,
+  texts: [
+    { id: sid('text', 1), text: 'NEXT DROP', position: { x: 240, y: 32 },
+      style: { color: '#22d3ee', fontSize: 38, fontWeight: 900, textAlign: 'center', width: 320, letterSpacing: 2, textShadow: '0 0 18px rgba(34,211,238,0.7)' } },
+    { id: sid('text', 2), text: '⚡ 한정판 · 선예약 오픈', position: { x: 220, y: 84 },
+      style: { color: '#f472b6', fontSize: 14, fontWeight: 600, textAlign: 'center', width: 360, letterSpacing: 1 } },
+  ],
+  products: [
+    { id: sid('p', 1), name: '상품명을 입력하세요', discount: 0, image: EMPTY_IMG, badge: 'none',
+      discountColor: '#22d3ee', badgeColor: '#22d3ee', nameColor: '#e0f2fe' },
+    { id: sid('p', 2), name: '상품명을 입력하세요', discount: 0, image: EMPTY_IMG, badge: 'none',
+      discountColor: '#f472b6', badgeColor: '#f472b6', nameColor: '#fce7f3' },
+  ],
+};
+
+// ════════════════════════════════════════════════════════════════
+// 10. 📜 빈티지 세피아 — 따뜻한 베이지/브라운, 클래식
+// ════════════════════════════════════════════════════════════════
+const TPL_VINTAGE_SEPIA: ProductTemplate = {
+  id: 'product-vintage-sepia',
+  name: '📜 빈티지 세피아',
+  description: '클래식 베이지·브라운, 카페·도서·라이프스타일',
+  layout: 'uniform',
+  columns: 2,
+  bgColor: '#f5ebd9',
+  bgGradient: 'linear-gradient(135deg, #f5ebd9 0%, #e7d4b3 100%)',
+  paddingTop: 100,
+  paddingBottom: 90,
+  thumbnail: `<svg viewBox="0 0 100 60" xmlns="http://www.w3.org/2000/svg">
+    <defs><linearGradient id="vsg-bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f5ebd9"/><stop offset="1" stop-color="#e7d4b3"/></linearGradient></defs>
+    <rect width="100" height="60" fill="url(#vsg-bg)"/>
+    <text x="50" y="10" text-anchor="middle" fill="#5b3a1e" font-size="5" font-weight="700" letter-spacing="2">heritage</text>
+    <rect x="10" y="16" width="38" height="38" rx="2" fill="#fff8eb" stroke="#5b3a1e"/>
+    <rect x="52" y="16" width="38" height="38" rx="2" fill="#fff8eb" stroke="#5b3a1e"/>
+  </svg>`,
+  texts: [
+    { id: sid('text', 1), text: 'Heritage Collection', position: { x: 200, y: 32 },
+      style: { color: '#5b3a1e', fontSize: 32, fontWeight: 800, textAlign: 'center', width: 400, letterSpacing: 2 } },
+    { id: sid('text', 2), text: '오래도록 사랑받는 클래식', position: { x: 220, y: 84 },
+      style: { color: '#8b5a2b', fontSize: 14, fontWeight: 500, textAlign: 'center', width: 360, letterSpacing: 1 } },
+  ],
+  products: [
+    { id: sid('p', 1), name: '상품명을 입력하세요', discount: 0, image: EMPTY_IMG, badge: 'none',
+      discountColor: '#5b3a1e', badgeColor: '#5b3a1e', nameColor: '#3e2811' },
+    { id: sid('p', 2), name: '상품명을 입력하세요', discount: 0, image: EMPTY_IMG, badge: 'none',
+      discountColor: '#5b3a1e', badgeColor: '#5b3a1e', nameColor: '#3e2811' },
+  ],
+};
+
+// ════════════════════════════════════════════════════════════════
+// 11. ☀️ 선셋 오렌지 — 따뜻한 그라데이션, 여름·캠페인·세일
+// ════════════════════════════════════════════════════════════════
+const TPL_SUNSET_ORANGE: ProductTemplate = {
+  id: 'product-sunset-orange',
+  name: '☀️ 선셋 오렌지',
+  description: '오렌지 그라데이션, 여름·세일·이벤트성',
+  layout: 'uniform',
+  columns: 2,
+  bgColor: '#fff7ed',
+  bgGradient: 'linear-gradient(180deg, #fff7ed 0%, #fed7aa 60%, #fdba74 100%)',
+  paddingTop: 100,
+  paddingBottom: 90,
+  thumbnail: `<svg viewBox="0 0 100 60" xmlns="http://www.w3.org/2000/svg">
+    <defs><linearGradient id="so-bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff7ed"/><stop offset="1" stop-color="#fdba74"/></linearGradient></defs>
+    <rect width="100" height="60" fill="url(#so-bg)"/>
+    <text x="50" y="11" text-anchor="middle" fill="#c2410c" font-size="6" font-weight="900">SUMMER VIBE</text>
+    <rect x="10" y="16" width="38" height="38" rx="6" fill="#fff" stroke="#fed7aa"/>
+    <rect x="52" y="16" width="38" height="38" rx="6" fill="#fff" stroke="#fed7aa"/>
+  </svg>`,
+  texts: [
+    { id: sid('text', 1), text: 'Summer Vibe', position: { x: 220, y: 32 },
+      style: { color: '#c2410c', fontSize: 38, fontWeight: 900, textAlign: 'center', width: 360, letterSpacing: -0.5, textShadow: '0 2px 8px rgba(194,65,12,0.2)' } },
+    { id: sid('text', 2), text: '🌴 시원한 여름을 위한 시즌 픽', position: { x: 200, y: 86 },
+      style: { color: '#ea580c', fontSize: 14, fontWeight: 600, textAlign: 'center', width: 400 } },
+  ],
+  products: [
+    { id: sid('p', 1), name: '상품명을 입력하세요', discount: 0, image: EMPTY_IMG, badge: 'hot', badgeLabel: 'HOT',
+      discountColor: '#c2410c', badgeColor: '#fb923c' },
+    { id: sid('p', 2), name: '상품명을 입력하세요', discount: 0, image: EMPTY_IMG, badge: 'none',
+      discountColor: '#c2410c', badgeColor: '#fb923c' },
+  ],
+};
+
 // ────────────────────────────────────────────────────────────────
 export const PRODUCT_TEMPLATES: ProductTemplate[] = [
   TPL_BASIC_2COL,
@@ -389,6 +490,9 @@ export const PRODUCT_TEMPLATES: ProductTemplate[] = [
   TPL_HOT_RED,
   TPL_NATURAL_GREEN,
   TPL_MODERN_MINIMAL,
+  TPL_CYBER_NEON,
+  TPL_VINTAGE_SEPIA,
+  TPL_SUNSET_ORANGE,
 ];
 
 export const getProductTemplateById = (id: string): ProductTemplate | undefined =>
