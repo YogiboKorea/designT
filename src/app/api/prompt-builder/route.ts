@@ -640,6 +640,9 @@ ${imageRule}
     ? `${mainImageUrl}\n  → 보존 강도: ${preservationMode}`
     : '(none — 대표 이미지 없이 AI 가 처음부터 생성)';
 
+  // 메인 카피 유무 — 비어있으면 "텍스트/타이포존 금지" 지시문으로 분기
+  const hasMainCopy = !!(fields?.mainCopy && String(fields.mainCopy).trim());
+
   // 이벤트 운영 정보 요약 (user 프롬프트용)
   const eventOpSummary: string[] = [];
   if (eventOperation?.formattedDate)
@@ -680,7 +683,7 @@ ${aspectRatio} → ${sizeText}
 
 위 정보를 종합하여, fal.ai FLUX (1.1 Pro 또는 Kontext) 에서 사용할 정교한 영문 프롬프트를 작성하시오.
 
-⚠️ 중요 — 한글 텍스트는 절대 영문 프롬프트에 포함하지 말 것.
+${hasMainCopy ? `⚠️ 중요 — 한글 텍스트는 절대 영문 프롬프트에 포함하지 말 것.
 한글 카피는 빌더 텍스트 에디터에서 사용자가 별도로 입력할 것이므로,
 이 프롬프트는 "한글이 들어갈 깨끗한 텍스트 공간(typography zone)" 만 확보하면 된다.
 
@@ -689,7 +692,18 @@ ${aspectRatio} → ${sizeText}
   2. 레퍼런스 이미지의 톤/색감만 차용하고,
   3. 이벤트 무드(시즌·할인·특별감 등)를 배경/라이팅으로 표현하고,
   4. 한글 카피가 들어갈 빈 공간 (typography zones) 을 명확히 지정하고,
-  5. 영문/숫자 도안(30% OFF, SALE 등) 은 적극 활용해 시각적 임팩트 추가.
+  5. 영문/숫자 도안(30% OFF, SALE 등) 은 적극 활용해 시각적 임팩트 추가.` : `⚠️ 중요 — 메인 카피가 비어있음. 생성 이미지에 어떤 텍스트도 포함하지 말 것.
+- "Korean text reads: ...", "headline", "copy area", "typography zone" 같은 텍스트/문구 관련 지시 절대 금지
+- 영문/숫자 도안(30% OFF, SALE, EVENT 등) 도 포함 금지
+- CTA 버튼·헤더 라벨·유의사항 등 운영 정보가 있어도 텍스트로 렌더하지 말고 무시
+- 결과 이미지는 순수 비주얼만 — 제품 + 배경 + 라이팅 + 분위기로만 구성
+- 프롬프트 본문에 "no text", "no typography", "pure visual composition, no rendered text, no captions, no headlines, no overlays" 같은 키워드를 명시적으로 포함
+
+흐름:
+  1. 대표 이미지가 있으면 그 사진의 제품/포즈를 중심에 두고 (Kontext 가 보존),
+  2. 레퍼런스 이미지의 톤/색감만 차용하고,
+  3. 이벤트 무드(시즌·할인·특별감 등)를 배경/라이팅으로만 표현,
+  4. 텍스트·문구·배너 도안 일체 없음 — 순수 사진/일러스트 비주얼.`}
 
 프롬프트 본문만 출력. 메타 설명·인사말·코드블록 금지. 80~140 영어 단어 권장.`;
 
