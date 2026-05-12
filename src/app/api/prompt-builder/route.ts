@@ -32,6 +32,14 @@ export const maxDuration = 30;
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 const ANTHROPIC_VERSION = '2023-06-01';
 
+interface ReferenceItemPayload {
+  title?: string;
+  url?: string;
+  tags?: string[];
+  visualNotes?: string;
+  extractedTokens?: any;
+}
+
 interface BuilderRequest {
   templateId: string;
   templateContext?: string;       // 양식의 contextForAI
@@ -39,6 +47,8 @@ interface BuilderRequest {
   /** 등록된 갤러리에서 선택한 레퍼런스 이미지 URL */
   referenceUrls?: string[];
   referenceTokens?: any[];
+  /** 풍부한 레퍼런스 컨텍스트 — visualNotes 포함. AI 가 실제로 활용. */
+  referenceItems?: ReferenceItemPayload[];
   /** "대표 이미지" — MD 가 직접 첨부한 메인 비주얼 또는 모델/제품 사진 */
   mainImageUrl?: string;
   /** 대표 이미지 보존 강도 — mainImageUrl 있을 때만 의미 */
@@ -107,6 +117,7 @@ export async function POST(req: NextRequest) {
       fields,
       referenceUrls = [],
       referenceTokens = [],
+      referenceItems = [],
       mainImageUrl: rawMainImageUrl = '',
       preservationMode = 'similar',
       preservationInstruction = '',
@@ -140,6 +151,7 @@ export async function POST(req: NextRequest) {
       fields,
       referenceUrls,
       referenceTokens,
+      referenceItems,
       mainImageUrl,
       preservationMode,
       preservationInstruction,
@@ -231,6 +243,7 @@ function buildRefinementPrompts(args: {
   fields: Record<string, any>;
   referenceUrls: string[];
   referenceTokens: any[];
+  referenceItems: ReferenceItemPayload[];
   mainImageUrl: string;
   preservationMode: string;
   preservationInstruction: string;
@@ -278,6 +291,7 @@ function buildRefinementPrompts(args: {
     fields,
     referenceUrls,
     referenceTokens,
+    referenceItems,
     mainImageUrl,
     preservationMode,
     preservationInstruction,
@@ -616,7 +630,12 @@ GPT-Image-1 은 한글 텍스트를 정확히 렌더링한다. 한글 카피·�
 2. 마크다운/코드블록(\`\`\`) 으로 감싸지 않는다.
 3. 사용자가 입력한 한글 카피는 큰따옴표로 영문 프롬프트 안에 그대로 포함한다.
    "typography zone 만 확보" 식의 우회 표현은 사용하지 않는다.
-4. 레퍼런스 이미지 URL이 제공되면 "Style reference: <URL>, follow this overall mood, color palette closely" 형태로 포함한다.
+4. ⭐ 참고 레퍼런스가 제공되면 (특히 "시각 메모" 가 있으면) **그 메모의 시각적 지시를 영문 프롬프트의 핵심 디자인 방향으로 반드시 반영**한다.
+   - 시각 메모 예: "파스텔 색감, 좌측 텍스트/우측 제품 분할 구도" → 영문 프롬프트에 "pastel color palette, split composition with text on the left and product on the right" 처럼 풀어 쓴다.
+   - 메모가 한국어면 영어로 자연스럽게 번역 + 디자인 용어로 구체화.
+   - URL 만 있고 메모가 없을 땐 "Style reference (visual mood guide): <URL>" 으로 포함하되, 추측으로 톤을 만들지 말고 시각 메모 강조는 생략.
+   - 여러 레퍼런스가 있으면 공통 분모(공유되는 색감·구도·분위기)를 추출해서 한 방향으로 통합.
+   - 레퍼런스의 시각 메모와 브랜드 미감([브랜드 미감 앵커]) 이 충돌하면 → 브랜드 미감 우선, 단 레퍼런스 방향성은 가능한 한 유지.
 ${imageRule}
 6. 색상 팔레트가 제공되면 hex 코드를 그대로 사용한다.
 7. 이커머스 배너답게 임팩트, 명확한 카피 위계, 구매 전환을 유도하는 분위기를 강조한다.
@@ -635,6 +654,27 @@ ${imageRule}
   const tokensBlock = referenceTokens.length
     ? JSON.stringify(referenceTokens, null, 2)
     : '(none)';
+
+  // ⭐ 사용자가 큐레이션한 레퍼런스의 전체 컨텍스트 — visualNotes 중심
+  // Claude 가 텍스트 모델이라 URL 만으론 이미지를 볼 수 없으므로,
+  // 사용자가 적은 시각 메모 + 태그 + 제목이 실제로 영향을 주는 정보임.
+  const richReferenceBlock = referenceItems.length
+    ? referenceItems
+        .map((r, i) => {
+          const parts: string[] = [];
+          parts.push(`레퍼런스 ${i + 1}: "${r.title ?? '(제목 없음)'}"`);
+          if (r.url) parts.push(`  · URL: ${r.url}`);
+          if (r.tags?.length) parts.push(`  · 태그: ${r.tags.join(', ')}`);
+          if (r.visualNotes && r.visualNotes.trim()) {
+            parts.push(`  · ⭐ 시각 메모 (이 메모를 반드시 디자인 지시문에 녹여낼 것): "${r.visualNotes.trim()}"`);
+          }
+          if (r.extractedTokens) {
+            parts.push(`  · 추출된 디자인 토큰: ${JSON.stringify(r.extractedTokens)}`);
+          }
+          return parts.join('\n');
+        })
+        .join('\n\n')
+    : '(없음 — 레퍼런스 미선택)';
 
   const mainImageBlock = mainImageUrl
     ? `${mainImageUrl}\n  → 보존 강도: ${preservationMode}`
@@ -669,10 +709,13 @@ ${eventOpSummaryText}
 [대표 이미지 — 메인 비주얼로 보존할 사진]
 ${mainImageBlock}
 
-[참고 레퍼런스 이미지 URL — 톤/색상만 참고]
+[참고 레퍼런스 — ⭐ 사용자가 직접 큐레이션한 디자인 참고]
+${richReferenceBlock}
+
+[참고 레퍼런스 이미지 URL 목록 (위 정보의 요약)]
 ${refUrlsBlock}
 
-[참고 레퍼런스 디자인 토큰]
+[참고 레퍼런스 디자인 토큰 (추출된 색상/톤)]
 ${tokensBlock}
 
 [타겟 도구]

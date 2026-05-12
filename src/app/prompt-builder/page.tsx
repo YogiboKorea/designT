@@ -34,6 +34,8 @@ interface ReferenceItem {
   title: string;
   imageUrl: string;
   tags: string[];
+  /** 사용자가 직접 적은 시각 메모 — 가장 중요한 텍스트 컨텍스트 */
+  visualNotes?: string;
   extractedTokens?: any;
 }
 
@@ -281,6 +283,15 @@ export default function PromptBuilderPage() {
           referenceTokens: selectedRefItems
             .map((r) => r.extractedTokens)
             .filter(Boolean),
+          // ⭐ 사용자가 적은 시각 메모 + 제목 + 태그를 같이 전달
+          // (extractedTokens 가 비어있어도 Claude 가 실제로 활용할 수 있는 컨텍스트)
+          referenceItems: selectedRefItems.map((r) => ({
+            title: r.title,
+            url: r.imageUrl,
+            tags: r.tags ?? [],
+            visualNotes: r.visualNotes ?? '',
+            extractedTokens: r.extractedTokens ?? null,
+          })),
           mainImageUrl,
           preservationMode,
           preservationInstruction: preservationDef?.instruction ?? '',
