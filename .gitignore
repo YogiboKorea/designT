@@ -39,3 +39,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# 백업 폴더 (빌드/배포 제외)
+/5월7일원본/
+/5월7일원본.zip
+/MAIN_VISUAL_PATCH_GUIDE.md
