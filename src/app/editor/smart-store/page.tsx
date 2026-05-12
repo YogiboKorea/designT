@@ -1,5 +1,6 @@
 'use client';
 
+import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import EditorShell from '@/components/EditorShell';
 
@@ -12,7 +13,7 @@ const SIZE_MAP: Record<string, { w: number; h: number; label: string; codeLabel:
   '860x-':      { w: 860,  h: 0,    label: '📄 상세 페이지', codeLabel: '모바일 롱 페이지' },
 };
 
-export default function SmartStoreEditorPage() {
+function SmartStoreEditorInner() {
   const searchParams = useSearchParams();
   const sizeKey = searchParams?.get('size') || '1920x400';
   const meta = SIZE_MAP[sizeKey] || SIZE_MAP['1920x400'];
@@ -28,5 +29,13 @@ export default function SmartStoreEditorPage() {
       designCodeLabel={meta.codeLabel}
       backUrl="/banner/smart-store"
     />
+  );
+}
+
+export default function SmartStoreEditorPage() {
+  return (
+    <Suspense fallback={null}>
+      <SmartStoreEditorInner />
+    </Suspense>
   );
 }

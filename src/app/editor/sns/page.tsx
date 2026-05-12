@@ -1,5 +1,6 @@
 'use client';
 
+import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import EditorShell from '@/components/EditorShell';
 
@@ -8,7 +9,7 @@ const SIZE_MAP: Record<string, { w: number; h: number; label: string; codeLabel:
   '1080x1350': { w: 1080, h: 1350, label: '📷 인스타 세로형', codeLabel: 'SNS 4:5' },
 };
 
-export default function SnsEditorPage() {
+function SnsEditorInner() {
   const searchParams = useSearchParams();
   const sizeKey = searchParams?.get('size') || '1080x1080';
   const meta = SIZE_MAP[sizeKey] || SIZE_MAP['1080x1080'];
@@ -24,5 +25,13 @@ export default function SnsEditorPage() {
       designCodeLabel={meta.codeLabel}
       backUrl="/banner/sns"
     />
+  );
+}
+
+export default function SnsEditorPage() {
+  return (
+    <Suspense fallback={null}>
+      <SnsEditorInner />
+    </Suspense>
   );
 }

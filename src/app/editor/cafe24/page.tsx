@@ -1,5 +1,6 @@
 'use client';
 
+import { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import EditorShell from '@/components/EditorShell';
 
@@ -9,7 +10,7 @@ const SIZE_MAP: Record<string, { w: number; h: number; label: string; codeLabel:
   '800x-':    { w: 800,  h: 0,   label: '📄 자사몰 이벤트 페이지', codeLabel: '모바일 롱 페이지' },
 };
 
-export default function Cafe24EditorPage() {
+function Cafe24EditorInner() {
   const searchParams = useSearchParams();
   const sizeKey = searchParams?.get('size') || '1920x680';
   const meta = SIZE_MAP[sizeKey] || SIZE_MAP['1920x680'];
@@ -25,5 +26,13 @@ export default function Cafe24EditorPage() {
       designCodeLabel={meta.codeLabel}
       backUrl="/banner/cafe24"
     />
+  );
+}
+
+export default function Cafe24EditorPage() {
+  return (
+    <Suspense fallback={null}>
+      <Cafe24EditorInner />
+    </Suspense>
   );
 }
