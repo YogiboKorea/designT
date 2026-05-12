@@ -222,7 +222,7 @@ export const CAMPAIGN_TEMPLATES: CampaignTemplate[] = [
         key: 'mainCopy',
         label: '메인 카피',
         type: 'text',
-        required: true,
+        required: false,
         placeholder: '예: 봄맞이 신상 30% 할인',
         hint: '캔버스에 가장 크게 표시될 한국어 카피',
       },
@@ -291,7 +291,7 @@ export const CAMPAIGN_TEMPLATES: CampaignTemplate[] = [
         key: 'mainCopy',
         label: '메인 카피',
         type: 'text',
-        required: true,
+        required: false,
         placeholder: '예: 어버이날 감사 세일',
       },
       {
@@ -348,7 +348,7 @@ export const CAMPAIGN_TEMPLATES: CampaignTemplate[] = [
         key: 'mainCopy',
         label: '메인 카피',
         type: 'text',
-        required: true,
+        required: false,
         placeholder: '예: NEW 컬렉션 입고',
       },
       {
@@ -416,7 +416,7 @@ export const CAMPAIGN_TEMPLATES: CampaignTemplate[] = [
         key: 'mainCopy',
         label: '메인 카피',
         type: 'text',
-        required: true,
+        required: false,
         placeholder: '예: 주말 한정 단독 쿠폰',
       },
       {
@@ -452,7 +452,7 @@ export const CAMPAIGN_TEMPLATES: CampaignTemplate[] = [
         key: 'mainCopy',
         label: '메인 카피',
         type: 'text',
-        required: true,
+        required: false,
         placeholder: '예: 리뷰 작성하고 5,000원 적립금',
       },
       {
