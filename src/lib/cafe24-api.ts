@@ -1,5 +1,8 @@
 // cafe24 (ychat) 백엔드 axios 인스턴스.
 // reference 프로젝트(cafe24Env/완/front/src/axios.js) 의 설정을 그대로 옮겨옴.
+//
+// CORS 회피를 위해 브라우저 호출은 /api/cafe24 프록시 (Next.js 라우트) 로 보낸다.
+// CAFE24_API_HOST 는 widget.js 스크립트 태그 생성처럼 외부 URL 이 필요한 곳에서만 사용.
 import axios from 'axios';
 
 export const CAFE24_API_HOST =
@@ -10,7 +13,7 @@ export const DEFAULT_MALL_ID =
   process.env.NEXT_PUBLIC_CAFE24_MALL_ID || 'yogibo';
 
 const cafe24Api = axios.create({
-  baseURL: CAFE24_API_HOST,
+  baseURL: '/api/cafe24',
   timeout: 15000,
   headers: { Accept: 'application/json' },
 });

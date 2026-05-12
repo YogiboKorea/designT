@@ -2,7 +2,8 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { proxyImageUrl } from '@/lib/proxy-image-url';
 
-const API_HOST = 'https://port-0-ychat-lzgmwhc4d9883c97.sel4.cloudtype.app';
+// 같은 origin 프록시로 호출 (CORS 우회). 실제 ychat 호스트는 /api/cafe24/[...path] 가 서버측에서 처리.
+const API_HOST = '/api/cafe24';
 const MALL_ID = 'yogibo';
 const PAGE_SIZE = 10;
 const SEARCH_CHUNK = 100;
