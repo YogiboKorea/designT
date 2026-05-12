@@ -25,14 +25,19 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { TOOL_USAGE_GUIDES, DESIGN_CODES, ASPECT_RATIOS } from '../../../data/campaign-templates';
+import { connectToDatabase } from '@/lib/mongodb';
+import ReferenceImage from '@/models/ReferenceImage';
+import { extractTokensFromUrl } from '@/lib/ai-vision';
 
 export const runtime = 'nodejs';
-export const maxDuration = 30;
+// 레퍼런스 vision 분석 (병렬 5개) 까지 고려해서 여유롭게.
+export const maxDuration = 60;
 
 const ANTHROPIC_API_URL = 'https://api.anthropic.com/v1/messages';
 const ANTHROPIC_VERSION = '2023-06-01';
 
 interface ReferenceItemPayload {
+  _id?: string;
   title?: string;
   url?: string;
   tags?: string[];
@@ -141,6 +146,13 @@ export async function POST(req: NextRequest) {
     const mainImageUrl =
       rawMainImageUrl || productInfo?.productImageUrl || '';
 
+    // ⭐ 레퍼런스 자동 비전 분석 — 토큰 없는 항목을 병렬로 추출 + DB 캐싱
+    // Claude 가 텍스트 모델이라 URL 만으론 이미지를 못 봄. 사전에 vision 으로
+    // 색상/레이아웃/톤을 뽑아두면 그 정보를 가지고 정교한 프롬프트를 만들 수 있음.
+    // 분석은 한 번만, 두 번째 사용부터는 DB 캐시 사용 → 같은 레퍼런스로 다시
+    // 프롬프트 만들면 즉시 응답.
+    const enrichedReferenceItems = await enrichReferencesWithVision(referenceItems);
+
     // ⭐ 라이브러리에서 자동 fallback 됐는지 (UI/응답에서 알려주기 위해)
     const usedLibraryAsMain =
       !rawMainImageUrl && !!productInfo?.productImageUrl;
@@ -151,7 +163,7 @@ export async function POST(req: NextRequest) {
       fields,
       referenceUrls,
       referenceTokens,
-      referenceItems,
+      referenceItems: enrichedReferenceItems,
       mainImageUrl,
       preservationMode,
       preservationInstruction,
@@ -232,6 +244,65 @@ export async function POST(req: NextRequest) {
       { status: 500 },
     );
   }
+}
+
+// ════════════════════════════════════════════════════════════════
+// 레퍼런스 비전 분석 + DB 캐싱
+// ────────────────────────────────────────────────────────────────
+// 토큰 없는 레퍼런스만 Claude Vision 으로 분석. 결과는 DB 에 한 번만
+// 저장되고 다음 호출부터는 즉시 재사용. 분석 실패해도 다른 레퍼런스/
+// 전체 프롬프트 생성은 계속 진행.
+async function enrichReferencesWithVision(
+  items: ReferenceItemPayload[],
+): Promise<ReferenceItemPayload[]> {
+  if (!items.length) return items;
+
+  // 토큰 없는 것만 분석 대상
+  const toAnalyze = items.filter((r) => !r.extractedTokens && r.url);
+  if (!toAnalyze.length) return items;
+
+  // DB 연결 (캐싱용). 실패해도 분석은 진행 (캐싱만 스킵)
+  let dbReady = false;
+  try {
+    await connectToDatabase();
+    dbReady = true;
+  } catch (err) {
+    console.warn('[prompt-builder] DB 연결 실패 — vision 결과 캐싱 스킵:', err);
+  }
+
+  // 병렬 분석 — 실패는 무시하고 토큰 없이 진행
+  const results = await Promise.allSettled(
+    toAnalyze.map(async (r) => {
+      const tokens = await extractTokensFromUrl(r.url!);
+      // DB 캐싱 (실패해도 분석 결과는 사용)
+      if (dbReady && r._id) {
+        try {
+          await ReferenceImage.findByIdAndUpdate(r._id, { extractedTokens: tokens });
+        } catch (err) {
+          console.warn(`[prompt-builder] DB 캐싱 실패 (_id=${r._id}):`, err);
+        }
+      }
+      return { id: r._id, url: r.url, tokens };
+    }),
+  );
+
+  // 분석 결과를 원본 items 에 머지
+  const tokenMap = new Map<string, any>();
+  results.forEach((r, idx) => {
+    if (r.status === 'fulfilled') {
+      const key = toAnalyze[idx]._id || toAnalyze[idx].url || '';
+      if (key) tokenMap.set(key, r.value.tokens);
+    } else {
+      console.warn('[prompt-builder] vision 분석 실패:', r.reason);
+    }
+  });
+
+  return items.map((r) => {
+    if (r.extractedTokens) return r;
+    const key = r._id || r.url || '';
+    const tokens = tokenMap.get(key);
+    return tokens ? { ...r, extractedTokens: tokens } : r;
+  });
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -630,12 +701,14 @@ GPT-Image-1 은 한글 텍스트를 정확히 렌더링한다. 한글 카피·�
 2. 마크다운/코드블록(\`\`\`) 으로 감싸지 않는다.
 3. 사용자가 입력한 한글 카피는 큰따옴표로 영문 프롬프트 안에 그대로 포함한다.
    "typography zone 만 확보" 식의 우회 표현은 사용하지 않는다.
-4. ⭐ 참고 레퍼런스가 제공되면 (특히 "시각 메모" 가 있으면) **그 메모의 시각적 지시를 영문 프롬프트의 핵심 디자인 방향으로 반드시 반영**한다.
-   - 시각 메모 예: "파스텔 색감, 좌측 텍스트/우측 제품 분할 구도" → 영문 프롬프트에 "pastel color palette, split composition with text on the left and product on the right" 처럼 풀어 쓴다.
-   - 메모가 한국어면 영어로 자연스럽게 번역 + 디자인 용어로 구체화.
-   - URL 만 있고 메모가 없을 땐 "Style reference (visual mood guide): <URL>" 으로 포함하되, 추측으로 톤을 만들지 말고 시각 메모 강조는 생략.
-   - 여러 레퍼런스가 있으면 공통 분모(공유되는 색감·구도·분위기)를 추출해서 한 방향으로 통합.
-   - 레퍼런스의 시각 메모와 브랜드 미감([브랜드 미감 앵커]) 이 충돌하면 → 브랜드 미감 우선, 단 레퍼런스 방향성은 가능한 한 유지.
+4. ⭐⭐ 참고 레퍼런스가 제공되면 **레퍼런스의 시각 정보(특히 "추출된 디자인 토큰" 의 colors/layout/tone, 그리고 "시각 메모")를 영문 프롬프트의 핵심 디자인 방향으로 반드시, 구체적으로 반영**한다. 이게 가장 중요한 규칙이다.
+   - **추출된 디자인 토큰의 colors hex 값은 그대로 사용**: "with brand palette of #F2E2CB primary, #45B3C2 accent, #FFFFFF background" 처럼 hex 를 영문 프롬프트 안에 직접 박는다.
+   - **layout 키워드를 영문 프롬프트 본문에 활용**: 예) layout 값이 "left-text-right-product" 면 → "split composition with copy zone on the left and product showcase on the right".
+   - **tone[] 키워드를 그대로 영문 프롬프트 키워드로 흡수**: 예) tone 이 ["minimal","warm","premium"] 면 → 영문 프롬프트 안 형용사로 자연스럽게 녹여 사용.
+   - **시각 메모(visualNotes) 가 있으면** 그것도 함께 반영. 한국어면 영어로 번역 + 디자인 용어로 구체화. 예: "파스텔 색감, 좌측 텍스트/우측 제품 분할 구도" → "pastel color palette, split composition with text on the left and product on the right".
+   - **여러 레퍼런스가 있으면 공통 분모**(공유되는 색감·구도·분위기)를 추출해서 한 방향으로 통합. 한 레퍼런스만 있으면 그것을 직접 따른다.
+   - **충돌 처리**: 레퍼런스의 톤과 브랜드 미감([브랜드 미감 앵커])이 충돌하면 → 브랜드 미감 우선이되, 레퍼런스의 색상/레이아웃은 가능한 한 유지.
+   - **레퍼런스 URL 자체는 영문 프롬프트에 직접 포함하지 않는다** (URL 은 사람용 메타데이터). 대신 위 추출된 정보를 활용.
 ${imageRule}
 6. 색상 팔레트가 제공되면 hex 코드를 그대로 사용한다.
 7. 이커머스 배너답게 임팩트, 명확한 카피 위계, 구매 전환을 유도하는 분위기를 강조한다.
@@ -655,21 +728,41 @@ ${imageRule}
     ? JSON.stringify(referenceTokens, null, 2)
     : '(none)';
 
-  // ⭐ 사용자가 큐레이션한 레퍼런스의 전체 컨텍스트 — visualNotes 중심
-  // Claude 가 텍스트 모델이라 URL 만으론 이미지를 볼 수 없으므로,
-  // 사용자가 적은 시각 메모 + 태그 + 제목이 실제로 영향을 주는 정보임.
+  // ⭐ 사용자가 큐레이션한 레퍼런스의 전체 컨텍스트.
+  // Claude 가 텍스트 모델이라 URL 만으론 이미지를 못 보므로, vision 으로 사전 추출한
+  // 디자인 토큰(colors/layout/tone) + 사용자 시각 메모를 풀어서 전달.
   const richReferenceBlock = referenceItems.length
     ? referenceItems
         .map((r, i) => {
           const parts: string[] = [];
           parts.push(`레퍼런스 ${i + 1}: "${r.title ?? '(제목 없음)'}"`);
-          if (r.url) parts.push(`  · URL: ${r.url}`);
           if (r.tags?.length) parts.push(`  · 태그: ${r.tags.join(', ')}`);
           if (r.visualNotes && r.visualNotes.trim()) {
-            parts.push(`  · ⭐ 시각 메모 (이 메모를 반드시 디자인 지시문에 녹여낼 것): "${r.visualNotes.trim()}"`);
+            parts.push(`  · ⭐ 사용자 시각 메모: "${r.visualNotes.trim()}"`);
           }
-          if (r.extractedTokens) {
-            parts.push(`  · 추출된 디자인 토큰: ${JSON.stringify(r.extractedTokens)}`);
+          const t = r.extractedTokens;
+          if (t) {
+            // 토큰을 사람이 읽기 좋게 풀어서 — Claude 가 hex/키워드를 그대로 가져다 쓰게.
+            const lines: string[] = [];
+            if (t.colors) {
+              const c = t.colors;
+              const colorParts = [
+                c.primary && `primary=${c.primary}`,
+                c.secondary && `secondary=${c.secondary}`,
+                c.accent && `accent=${c.accent}`,
+                c.background && `background=${c.background}`,
+              ].filter(Boolean);
+              if (colorParts.length) lines.push(`    color palette: ${colorParts.join(', ')}`);
+            }
+            if (t.layout) lines.push(`    layout: "${t.layout}"`);
+            if (Array.isArray(t.tone) && t.tone.length) {
+              lines.push(`    tone keywords: ${t.tone.join(', ')}`);
+            }
+            if (t.rationale) lines.push(`    분석 요약: "${t.rationale}"`);
+            if (lines.length) {
+              parts.push(`  · ⭐⭐ Vision 추출 디자인 토큰 (이걸 영문 프롬프트에 직접 반영할 것):`);
+              parts.push(lines.join('\n'));
+            }
           }
           return parts.join('\n');
         })

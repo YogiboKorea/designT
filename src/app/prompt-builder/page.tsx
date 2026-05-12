@@ -286,6 +286,7 @@ export default function PromptBuilderPage() {
           // ⭐ 사용자가 적은 시각 메모 + 제목 + 태그를 같이 전달
           // (extractedTokens 가 비어있어도 Claude 가 실제로 활용할 수 있는 컨텍스트)
           referenceItems: selectedRefItems.map((r) => ({
+            _id: r._id,
             title: r.title,
             url: r.imageUrl,
             tags: r.tags ?? [],

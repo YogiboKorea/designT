@@ -86,9 +86,13 @@ const ReferenceImageSchema: Schema = new Schema(
     tags: { type: [String], default: [] },
     visualNotes: { type: String, default: '' },
 
+    // Claude Vision 으로 추출한 디자인 토큰. 한번 분석되면 DB 에 캐싱되어 재사용.
+    // 구조: { colors: { primary, secondary, accent, background }, typography, layout, tone[], rationale }
+    extractedTokens: { type: Schema.Types.Mixed, default: null },
+
     active: { type: Boolean, default: true, index: true },
   },
-  { timestamps: true },
+  { timestamps: true, strict: false },
 );
 
 ReferenceImageSchema.index({ category: 1, active: 1 });
