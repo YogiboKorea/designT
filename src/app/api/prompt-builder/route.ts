@@ -817,18 +817,32 @@ ${targetTool}
 [출력 사이즈]
 ${aspectRatio} → ${sizeText}
 
-위 정보를 종합하여, fal.ai FLUX (1.1 Pro 또는 Kontext) 에서 사용할 정교한 영문 프롬프트를 작성하시오.
+위 정보를 종합하여, ChatGPT 4o (GPT-Image-1) 에 바로 붙여넣어 사용할 정교한 영문 프롬프트를 작성하시오.
+GPT-Image-1 은 한글 텍스트를 정확히 렌더링하므로, 한글 카피·헤드라인·CTA 를 영문 프롬프트 안에 그대로 박는다.
 
-${hasMainCopy ? `⚠️ 중요 — 한글 텍스트는 절대 영문 프롬프트에 포함하지 말 것.
-한글 카피는 빌더 텍스트 에디터에서 사용자가 별도로 입력할 것이므로,
-이 프롬프트는 "한글이 들어갈 깨끗한 텍스트 공간(typography zone)" 만 확보하면 된다.
+${hasMainCopy ? `⚠️ ⚠️ ⚠️ 최우선 규칙 — 메인 카피를 결과 이미지의 실제 텍스트로 렌더하라.
+
+위 [MD 입력 필드] 의 \`mainCopy\` 값 ("${String(fields?.mainCopy ?? '').trim()}") 을 **영문 프롬프트 안에 큰따옴표로 그대로 박는다.**
+
+올바른 예시:
+   Place a bold Korean headline "${String(fields?.mainCopy ?? '').trim()}" on the left side of the canvas,
+   font size approximately 110px, weight 900, color #1a1a1a, Pretendard-style typography,
+   generous letter-spacing, refined editorial weight.
+
+❌ 절대 하지 말 것:
+   - "reserve space for Korean headline" (X — 실제 텍스트 안 들어감)
+   - "typography zone for the title" (X — 빈 공간만 만듦)
+   - "[Korean headline]" 같은 placeholder (X)
+   - 한글을 영문으로 의역 (X — 사용자 입력 그대로 박아야 함)
+   - "Korean text reads: ..." 처럼 메타 표현으로 둘러싸기 (X — 영문 본문에 직접)
 
 흐름:
-  1. 대표 이미지가 있으면 그 사진의 제품/포즈를 중심에 두고 (Kontext 가 보존),
-  2. 레퍼런스 이미지의 톤/색감만 차용하고,
-  3. 이벤트 무드(시즌·할인·특별감 등)를 배경/라이팅으로 표현하고,
-  4. 한글 카피가 들어갈 빈 공간 (typography zones) 을 명확히 지정하고,
-  5. 영문/숫자 도안(30% OFF, SALE 등) 은 적극 활용해 시각적 임팩트 추가.` : `⚠️ 중요 — 메인 카피가 비어있음. 생성 이미지에 어떤 텍스트도 포함하지 말 것.
+  1. 대표 이미지가 있으면 그 사진의 제품/포즈를 중심에 두고 (보존),
+  2. 레퍼런스 이미지의 톤/색감/레이아웃을 차용,
+  3. 이벤트 무드(시즌·할인·특별감)를 배경/라이팅으로 보강,
+  4. **한글 메인 카피 "${String(fields?.mainCopy ?? '').trim()}" 를 영문 프롬프트 안에 큰따옴표로 직접 박고**, 폰트 크기·색상·위치 명시,
+  5. 할인율(${fields?.discount ?? ''}%) 은 "${fields?.discount ?? ''}% OFF" 또는 "${fields?.discount ?? ''}% 할인" 으로 같이 노출,
+  6. 위 [이벤트 운영 정보] 의 CTA·헤더 라벨·유의사항도 한글 그대로 큰따옴표로 박을 것 (있을 때만).` : `⚠️ 중요 — 메인 카피가 비어있음. 생성 이미지에 어떤 텍스트도 포함하지 말 것.
 - "Korean text reads: ...", "headline", "copy area", "typography zone" 같은 텍스트/문구 관련 지시 절대 금지
 - 영문/숫자 도안(30% OFF, SALE, EVENT 등) 도 포함 금지
 - CTA 버튼·헤더 라벨·유의사항 등 운영 정보가 있어도 텍스트로 렌더하지 말고 무시
@@ -836,12 +850,12 @@ ${hasMainCopy ? `⚠️ 중요 — 한글 텍스트는 절대 영문 프롬프�
 - 프롬프트 본문에 "no text", "no typography", "pure visual composition, no rendered text, no captions, no headlines, no overlays" 같은 키워드를 명시적으로 포함
 
 흐름:
-  1. 대표 이미지가 있으면 그 사진의 제품/포즈를 중심에 두고 (Kontext 가 보존),
-  2. 레퍼런스 이미지의 톤/색감만 차용하고,
-  3. 이벤트 무드(시즌·할인·특별감 등)를 배경/라이팅으로만 표현,
+  1. 대표 이미지가 있으면 그 사진의 제품/포즈를 중심에 두고 (보존),
+  2. 레퍼런스 이미지의 톤/색감/레이아웃을 차용,
+  3. 이벤트 무드(시즌·할인·특별감)를 배경/라이팅으로만 표현,
   4. 텍스트·문구·배너 도안 일체 없음 — 순수 사진/일러스트 비주얼.`}
 
-프롬프트 본문만 출력. 메타 설명·인사말·코드블록 금지. 80~140 영어 단어 권장.`;
+프롬프트 본문만 출력. 메타 설명·인사말·코드블록 금지. 100~180 영어 단어 권장.`;
 
   return { systemPrompt, userPrompt };
 }
