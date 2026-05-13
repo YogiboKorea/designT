@@ -346,32 +346,36 @@ export default function EventCreatePage() {
   // 저장
   const [submitting, setSubmitting] = useState(false);
 
-  // 이미지 블록의 dataURL/blob 을 cafe24 FTP 에 업로드 후 영구 URL 로 교체.
-  // /api/ftp 는 application/json 의 imageBase64 + filename 형태를 지원.
+  // 이미지 블록의 dataURL/blob 을 Vercel Blob 에 스테이징한 뒤 Cafe24 FTP 로 옮기고
+  // 영구 URL 로 교체. Vercel 서버리스 함수의 4.5MB 페이로드 한도를 회피하기 위해
+  // 브라우저 → Blob 으로 직접 업로드한다.
   const uploadBlockImage = async (b: EventBlock): Promise<EventBlock> => {
     if (b.type !== 'image' || !b.src) return b;
-    // 이미 영구 URL 인 경우 (이전에 업로드된 이미지) 그대로 사용
     if (/^https?:\/\//.test(b.src) && !b.file) return b;
 
-    let imageBase64 = b.src;
-    if (!imageBase64.startsWith('data:')) {
-      // blob URL 등은 fetch → blob → dataURL 로 변환
-      const res = await fetch(imageBase64);
-      const blob = await res.blob();
-      imageBase64 = await new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.readAsDataURL(blob);
-      });
+    let fileBlob: Blob;
+    if (b.file) {
+      fileBlob = b.file;
+    } else {
+      const res = await fetch(b.src);
+      fileBlob = await res.blob();
     }
 
-    const ext = (b.file?.name?.split('.').pop() || 'png').toLowerCase();
+    const mimeExt = fileBlob.type.split('/')[1];
+    const ext = (b.file?.name?.split('.').pop() || mimeExt || 'png').toLowerCase();
     const filename = `event_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+
+    const { upload } = await import('@vercel/blob/client');
+    const { url: blobUrl } = await upload(filename, fileBlob, {
+      access: 'public',
+      handleUploadUrl: '/api/upload',
+      contentType: fileBlob.type || undefined,
+    });
 
     const ftpRes = await fetch('/api/ftp', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ imageBase64, filename }),
+      body: JSON.stringify({ blobUrl, filename }),
     });
     const json = await ftpRes.json();
     if (!json.success) throw new Error(json.message || 'FTP 업로드 실패');

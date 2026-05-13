@@ -16,6 +16,7 @@
     "@ant-design/v5-patch-for-react-19": "^1.0.3",
     "@hello-pangea/dnd": "^18.0.1",
     "@imgly/background-removal": "^1.7.0",
+    "@vercel/blob": "^2.3.3",
     "antd": "^5.29.3",
     "axios": "^1.16.0",
     "basic-ftp": "^5.3.0",

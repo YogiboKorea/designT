@@ -404,27 +404,35 @@ export default function EventEditPage() {
     setTextModalVisible(false);
   };
 
-  // 이미지 블록을 cafe24 FTP 에 업로드 후 영구 URL 로 교체.
+  // 이미지 블록을 Vercel Blob 에 스테이징한 뒤 Cafe24 FTP 로 옮기고 영구 URL 로 교체.
+  // Vercel 서버리스 함수의 4.5MB 페이로드 한도를 회피하기 위해 브라우저 → Blob 직접 업로드.
   const uploadBlockImage = async (b: EventBlock): Promise<EventBlock> => {
     if (b.type !== 'image' || !b.src) return b;
     if (/^https?:\/\//.test(b.src) && !b.file) return b;
 
-    let imageBase64 = b.src;
-    if (!imageBase64.startsWith('data:')) {
-      const r = await fetch(imageBase64);
-      const blob = await r.blob();
-      imageBase64 = await new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.readAsDataURL(blob);
-      });
+    let fileBlob: Blob;
+    if (b.file) {
+      fileBlob = b.file;
+    } else {
+      const r = await fetch(b.src);
+      fileBlob = await r.blob();
     }
-    const ext = (b.file?.name?.split('.').pop() || 'png').toLowerCase();
+
+    const mimeExt = fileBlob.type.split('/')[1];
+    const ext = (b.file?.name?.split('.').pop() || mimeExt || 'png').toLowerCase();
     const filename = `event_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+
+    const { upload } = await import('@vercel/blob/client');
+    const { url: blobUrl } = await upload(filename, fileBlob, {
+      access: 'public',
+      handleUploadUrl: '/api/upload',
+      contentType: fileBlob.type || undefined,
+    });
+
     const ftpRes = await fetch('/api/ftp', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ imageBase64, filename }),
+      body: JSON.stringify({ blobUrl, filename }),
     });
     const json = await ftpRes.json();
     if (!json.success) throw new Error(json.message || 'FTP 업로드 실패');
