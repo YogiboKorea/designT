@@ -1,11 +1,12 @@
 'use client';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { App as AntdApp, Card, Button, Space, Modal, Input, Alert } from 'antd';
-import { UnorderedListOutlined, CodeOutlined, CopyOutlined, EditOutlined, BlockOutlined } from '@ant-design/icons';
+import { UnorderedListOutlined, CodeOutlined, CopyOutlined, EditOutlined } from '@ant-design/icons';
 import { useRouter, useParams } from 'next/navigation';
 import cafe24Api, { CAFE24_API_HOST } from '@/lib/cafe24-api';
 import { useMallId } from '@/lib/use-mall-id';
 import AppShell from '@/components/AppShell';
+import { renderGrid, type ProductLite as SharedProductLite } from '@/components/events/event-blocks-shared';
 
 const escapeHtml = (s = '') => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
@@ -45,84 +46,9 @@ function YouTubeEmbed({
   );
 }
 
-interface ProductLite {
-  product_no?: number | string;
-  product_name?: string;
-  eng_product_name?: string;
-  summary_description?: string;
-  simple_description?: string;
-  list_image?: string;
-  price?: number | string;
-  sale_price?: number | string | null;
-  benefit_price?: number | string | null;
-}
-
-function renderGrid(cols: number, products: ProductLite[] = [], opts: { discountPercent?: number } = {}) {
-  const safeCols = Math.max(1, Math.min(4, Number(cols) || 2));
-  const placeholderCount = safeCols === 1 ? 1 : Math.min(safeCols * safeCols, 4);
-  const itemsToRender = products.length > 0
-    ? (safeCols === 1 ? products.slice(0, 1) : products)
-    : Array.from({ length: placeholderCount });
-  const titleFontSize = safeCols === 1 ? '20px' : `${18 - safeCols}px`;
-  const subFontSize = safeCols === 1 ? '14px' : `${14 - safeCols}px`;
-  const priceFontSize = safeCols === 1 ? '20px' : `${17 - safeCols}px`;
-  const discountPercent = Math.max(0, Math.min(100, Number(opts.discountPercent) || 0));
-  const containerMaxWidth = safeCols === 1 ? 400 : 800;
-  return (
-    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${safeCols},1fr)`, gap: 16, maxWidth: containerMaxWidth, margin: '24px auto' }}>
-      {itemsToRender.map((p, i) => {
-        const product = (p as ProductLite) || {};
-        const engName = product.eng_product_name || product.summary_description || product.simple_description || '';
-        const original = product.price != null ? Number(product.price) : null;
-        const discounted = original != null && discountPercent > 0
-          ? Math.round(original * (1 - discountPercent / 100))
-          : null;
-        return (
-          <div key={product.product_no || i} style={{ overflow: 'hidden', background: '#fff' }}>
-            <div style={{ aspectRatio: '1 / 1', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8f9fa' }}>
-              {product.list_image ? (
-                <img src={product.list_image} alt={product.product_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              ) : (
-                <BlockOutlined style={{ fontSize: 40, color: '#d9d9d9' }} />
-              )}
-            </div>
-            <div style={{ padding: 10, minHeight: 90 }}>
-              {engName && (
-                <div style={{ fontSize: subFontSize, color: '#888', lineHeight: 1.2, marginBottom: 2 }}>
-                  {engName}
-                </div>
-              )}
-              <div style={{ fontWeight: 500, fontSize: titleFontSize, lineHeight: 1.2 }}>
-                {product.product_name || `상품명 ${i + 1}`}
-              </div>
-              {original != null && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
-                  {discounted != null ? (
-                    <>
-                      <span style={{ background: '#4FC3D7', color: '#fff', padding: '2px 8px', borderRadius: 12, fontSize: `${12 - Math.max(cols - 2, 0)}px`, fontWeight: 600, lineHeight: 1 }}>
-                        {discountPercent}%
-                      </span>
-                      <span style={{ color: '#999', textDecoration: 'line-through', fontSize: `${13 - Math.max(cols - 2, 0)}px` }}>
-                        {original.toLocaleString()}원
-                      </span>
-                      <span style={{ fontWeight: 'bold', fontSize: priceFontSize, color: '#111' }}>
-                        {discounted.toLocaleString()}원
-                      </span>
-                    </>
-                  ) : (
-                    <span style={{ fontWeight: 'bold', fontSize: priceFontSize }}>
-                      {original.toLocaleString()}원
-                    </span>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
+// ProductLite/renderGrid 는 @/components/events/event-blocks-shared 에서 import.
+// 라이브 widget.js 와 동일한 카드 디자인 + per-product 가격(sale_price/benefit_price) 사용.
+type ProductLite = SharedProductLite;
 
 interface RegionItem {
   id?: string;
@@ -149,7 +75,9 @@ interface Block {
   style?: { align?: string; mt?: number; mb?: number; fontSize?: number; fontWeight?: string | number; color?: string };
   layoutType?: 'single' | 'tabs';
   registerMode?: 'direct' | 'category' | 'none';
-  tabs?: Array<{ title?: string }>;
+  root?: string;
+  sub?: string;
+  tabs?: Array<{ title?: string; root?: string | null; sub?: string | null }>;
   tabDirectProducts?: Record<number, ProductLite[]>;
   directProducts?: ProductLite[];
   gridSize?: number;
@@ -181,6 +109,8 @@ export default function EventDetailPage() {
   const [htmlCode, setHtmlCode] = useState('');
   const [previewActiveTabs, setPreviewActiveTabs] = useState<Record<string, number>>({});
   const [couponDiscountMap, setCouponDiscountMap] = useState<Record<string, number>>({});
+  // 카테고리 모드 블록의 미리보기용 상품 목록 — categoryNo → ProductLite[].
+  const [categoryProductsMap, setCategoryProductsMap] = useState<Record<string, ProductLite[]>>({});
   const { message: messageApi } = AntdApp.useApp();
 
   // 미리보기에 적용할 최대 쿠폰 할인율(%) — 이벤트에 선택된 쿠폰 중 최대치 사용.
@@ -205,6 +135,38 @@ export default function EventDetailPage() {
         // 쿠폰 로드 실패 시 미리보기 할인 적용 안 됨 — 사이트 표시는 widget.js 가 책임
       });
   }, [mallId]);
+
+  // 카테고리 모드 블록의 미리보기 상품 prefetch — 동일 categoryNo 는 한 번만 호출.
+  useEffect(() => {
+    if (!mallId || !event) return;
+    const blocksToScan: Block[] = event.sections || event.content?.blocks || [];
+    if (!blocksToScan.length) return;
+    const needed = new Set<string>();
+    blocksToScan.forEach((b) => {
+      if (b.type !== 'product_group' || b.registerMode !== 'category') return;
+      if (b.layoutType === 'single') {
+        const no = b.sub || b.root;
+        if (no) needed.add(String(no));
+      } else if (b.layoutType === 'tabs') {
+        (b.tabs || []).forEach((t) => {
+          const no = t?.sub || t?.root;
+          if (no) needed.add(String(no));
+        });
+      }
+    });
+    needed.forEach((no) => {
+      if (categoryProductsMap[no]) return;
+      cafe24Api
+        .get(`/api/${mallId}/categories/${no}/products`, { params: { limit: 300 } })
+        .then((res) => {
+          const arr = Array.isArray(res.data) ? res.data : (res.data?.products || []);
+          setCategoryProductsMap((prev) => ({ ...prev, [no]: arr }));
+        })
+        .catch(() => {
+          setCategoryProductsMap((prev) => ({ ...prev, [no]: [] }));
+        });
+    });
+  }, [mallId, event, categoryProductsMap]);
 
   // 옛 이벤트에 저장된 directProducts 가 summary_description 을 안 가진 경우, 클라이언트가 detail 호출해서 보강.
   const enrichedRef = useRef(new Set<string>());
@@ -444,12 +406,21 @@ export default function EventDetailPage() {
                 case 'product_group': {
                   const activeTabIndex = previewActiveTabs[blockId || ''] || 0;
                   let productsToDisplay: ProductLite[] = [];
-                  if (block.layoutType === 'single') {
-                    productsToDisplay = block.directProducts || [];
-                  } else if (block.layoutType === 'tabs') {
-                    if (block.registerMode === 'direct') {
+                  if (block.registerMode === 'direct') {
+                    if (block.layoutType === 'single') {
+                      productsToDisplay = block.directProducts || [];
+                    } else if (block.layoutType === 'tabs') {
                       productsToDisplay = (block.tabDirectProducts || {})[activeTabIndex] || [];
                     }
+                  } else if (block.registerMode === 'category') {
+                    let catNo: string | undefined;
+                    if (block.layoutType === 'single') {
+                      catNo = block.sub || block.root;
+                    } else if (block.layoutType === 'tabs') {
+                      const tab = (block.tabs || [])[activeTabIndex];
+                      catNo = tab?.sub || tab?.root || undefined;
+                    }
+                    productsToDisplay = catNo ? (categoryProductsMap[String(catNo)] || []) : [];
                   }
                   return (
                     <div key={blockId} style={{ padding: '16px 0', fontFamily: "'Noto Sans KR', sans-serif" }}>
@@ -472,30 +443,12 @@ export default function EventDetailPage() {
                           ))}
                         </div>
                       )}
-                      {block.registerMode === 'category' ? (
-                        <div
-                          style={{
-                            padding: '40px 20px',
-                            textAlign: 'center',
-                            color: '#888',
-                            background: '#fafafa',
-                            border: '1px dashed #d9d9d9',
-                            borderRadius: 4,
-                            marginTop: 24,
-                          }}
-                        >
-                          카테고리 상품의 경우 사이트 등록시
-                          <br />
-                          등록된 이미지와 가격을 확인하실수 있습니다.
-                        </div>
-                      ) : (
-                        renderGrid(
-                          block.layoutType === 'tabs'
-                            ? (block.tabGridSizes?.[activeTabIndex] ?? block.gridSize ?? 2)
-                            : (block.gridSize || 2),
-                          productsToDisplay,
-                          { discountPercent: previewDiscountPercent }
-                        )
+                      {renderGrid(
+                        block.layoutType === 'tabs'
+                          ? (block.tabGridSizes?.[activeTabIndex] ?? block.gridSize ?? 2)
+                          : (block.gridSize || 2),
+                        productsToDisplay,
+                        { discountPercent: previewDiscountPercent }
                       )}
                     </div>
                   );

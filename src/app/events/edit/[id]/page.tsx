@@ -62,6 +62,8 @@ export default function EventEditPage() {
   const [couponOptions, setCouponOptions] = useState<CouponOption[]>([]);
   const [eventCouponNos, setEventCouponNos] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  // 카테고리 모드 블록의 미리보기용 상품 목록 — categoryNo → ProductLite[].
+  const [categoryProductsMap, setCategoryProductsMap] = useState<Record<string, ProductLite[]>>({});
 
   // 미리보기에 적용할 최대 쿠폰 할인율(%)
   const previewDiscountPercent = useMemo(() => {
@@ -133,6 +135,36 @@ export default function EventEditPage() {
       );
     });
   }, [blocks, mallId]);
+
+  // 카테고리 모드 블록의 미리보기 상품 prefetch — 동일 categoryNo 는 한 번만 호출.
+  useEffect(() => {
+    if (!mallId) return;
+    const needed = new Set<string>();
+    blocks.forEach((b) => {
+      if (b.type !== 'product_group' || b.registerMode !== 'category') return;
+      if (b.layoutType === 'single') {
+        const no = b.sub || b.root;
+        if (no) needed.add(String(no));
+      } else if (b.layoutType === 'tabs') {
+        (b.tabs || []).forEach((t) => {
+          const no = t.sub || t.root;
+          if (no) needed.add(String(no));
+        });
+      }
+    });
+    needed.forEach((no) => {
+      if (categoryProductsMap[no]) return;
+      cafe24Api
+        .get(`/api/${mallId}/categories/${no}/products`, { params: { limit: 300 } })
+        .then((res) => {
+          const arr = Array.isArray(res.data) ? res.data : (res.data?.products || []);
+          setCategoryProductsMap((prev) => ({ ...prev, [no]: arr }));
+        })
+        .catch(() => {
+          setCategoryProductsMap((prev) => ({ ...prev, [no]: [] }));
+        });
+    });
+  }, [mallId, blocks, categoryProductsMap]);
 
   // 영역/모달 상태
   const [addingMode, setAddingMode] = useState(false);
@@ -501,6 +533,11 @@ export default function EventEditPage() {
               <p style={{ margin: '0 0 8px', fontSize: 12, color: '#888' }}>
                 선택한 쿠폰이 적용된 가격(혜택가)으로 상품이 표시됩니다. 쿠폰이 적용되지 않는 상품은 정가로 표시.
               </p>
+              <p style={{ margin: '0 0 8px', fontSize: 12, color: '#d32f2f', fontWeight: 600, lineHeight: 1.5 }}>
+                ⚠ 라이브 페이지에 쿠폰을 노출하려면 여기 목록에 반드시 추가해야 합니다. 추가하지 않은 쿠폰은
+                cafe24 에 자동 적용 가능 여부와 상관없이 위젯에 표시되지 않습니다.<br />
+                쿠폰을 추가/삭제한 뒤 저장만 하면 라이브 페이지에 자동 반영됩니다 (HTML 재배포 불필요).
+              </p>
               <Select
                 mode="multiple"
                 placeholder="이 이벤트에 적용할 쿠폰을 선택하세요"
@@ -650,6 +687,15 @@ export default function EventEditPage() {
                         const tabKey = tabKeys[activeTabIndex];
                         productsToDisplay = (b.tabDirectProducts || {})[Number(tabKey)] || [];
                       }
+                    } else if (b.registerMode === 'category') {
+                      let catNo: string | undefined;
+                      if (b.layoutType === 'single') {
+                        catNo = b.sub || b.root;
+                      } else if (b.layoutType === 'tabs') {
+                        const tab = (b.tabs || [])[activeTabIndex];
+                        catNo = tab?.sub || tab?.root || undefined;
+                      }
+                      productsToDisplay = catNo ? (categoryProductsMap[String(catNo)] || []) : [];
                     }
                     return (
                       <div key={b.id} style={{ padding: '16px 0', fontFamily: "'Noto Sans KR', sans-serif" }}>
@@ -680,12 +726,7 @@ export default function EventEditPage() {
                             ))}
                           </div>
                         )}
-                        {b.registerMode === 'category' && (
-                          <div style={{ padding: '40px 20px', textAlign: 'center', color: '#888', background: '#fafafa', border: '1px dashed #d9d9d9', borderRadius: 4, marginTop: 24 }}>
-                            카테고리 상품의 경우 사이트 등록시<br />등록된 이미지와 가격을 확인하실수 있습니다.
-                          </div>
-                        )}
-                        {b.registerMode === 'direct' && renderGrid(
+                        {(b.registerMode === 'direct' || b.registerMode === 'category') && renderGrid(
                           b.layoutType === 'tabs'
                             ? (b.tabGridSizes?.[activeTabIndex] ?? b.gridSize ?? 2)
                             : (b.gridSize || 2),

@@ -47,6 +47,9 @@ export default function EventCreatePage() {
 
   const [allCats, setAllCats] = useState<CategoryItem[]>([]);
   const [couponOptions, setCouponOptions] = useState<CouponOption[]>([]);
+  // 카테고리 모드 블록의 미리보기용 상품 목록 — categoryNo → ProductLite[].
+  // ychat /api/{mallId}/categories/{cate}/products 응답을 그대로 보관.
+  const [categoryProductsMap, setCategoryProductsMap] = useState<Record<string, import('@/components/events/event-blocks-shared').ProductLite[]>>({});
   // 이벤트 전체에 적용할 쿠폰 — widget.js 의 data-coupon-nos 로 전달되어
   // 상품 가격을 쿠폰 할인가(benefit_price) 로 표시함.
   const [eventCouponNos, setEventCouponNos] = useState<string[]>([]);
@@ -76,6 +79,37 @@ export default function EventCreatePage() {
       )
       .catch(() => msgApi.error('쿠폰 불러오기 실패'));
   }, [msgApi, mallId]);
+
+  // 카테고리 모드 블록에서 사용하는 categoryNo 를 수집해 미리보기용 상품 목록을 prefetch.
+  // 동일 categoryNo 가 여러 블록/탭에 쓰여도 한 번만 호출.
+  useEffect(() => {
+    if (!mallId) return;
+    const needed = new Set<string>();
+    blocks.forEach((b) => {
+      if (b.type !== 'product_group' || b.registerMode !== 'category') return;
+      if (b.layoutType === 'single') {
+        const no = b.sub || b.root;
+        if (no) needed.add(String(no));
+      } else if (b.layoutType === 'tabs') {
+        (b.tabs || []).forEach((t) => {
+          const no = t.sub || t.root;
+          if (no) needed.add(String(no));
+        });
+      }
+    });
+    needed.forEach((no) => {
+      if (categoryProductsMap[no]) return;
+      cafe24Api
+        .get(`/api/${mallId}/categories/${no}/products`, { params: { limit: 300 } })
+        .then((res) => {
+          const arr = Array.isArray(res.data) ? res.data : (res.data?.products || []);
+          setCategoryProductsMap((prev) => ({ ...prev, [no]: arr }));
+        })
+        .catch(() => {
+          setCategoryProductsMap((prev) => ({ ...prev, [no]: [] }));
+        });
+    });
+  }, [mallId, blocks, categoryProductsMap]);
 
   const imgRef = useRef<HTMLImageElement | null>(null);
   const uploadProps = {
@@ -471,6 +505,11 @@ export default function EventCreatePage() {
               <p style={{ margin: '0 0 8px', fontSize: 12, color: '#888' }}>
                 선택한 쿠폰이 적용된 가격(혜택가)으로 상품이 표시됩니다. 쿠폰이 적용되지 않는 상품은 정가로 표시.
               </p>
+              <p style={{ margin: '0 0 8px', fontSize: 12, color: '#d32f2f', fontWeight: 600, lineHeight: 1.5 }}>
+                ⚠ 라이브 페이지에 쿠폰을 노출하려면 여기 목록에 반드시 추가해야 합니다. 추가하지 않은 쿠폰은
+                cafe24 에 자동 적용 가능 여부와 상관없이 위젯에 표시되지 않습니다.<br />
+                쿠폰을 추가/삭제한 뒤 저장만 하면 라이브 페이지에 자동 반영됩니다 (HTML 재배포 불필요).
+              </p>
               <Select
                 mode="multiple"
                 placeholder="이 이벤트에 적용할 쿠폰을 선택하세요"
@@ -706,6 +745,15 @@ export default function EventCreatePage() {
                         const tabKey = tabKeys[activeTabIndex];
                         productsToDisplay = (b.tabDirectProducts || {})[Number(tabKey)] || [];
                       }
+                    } else if (b.registerMode === 'category') {
+                      let catNo: string | undefined;
+                      if (b.layoutType === 'single') {
+                        catNo = b.sub || b.root;
+                      } else if (b.layoutType === 'tabs') {
+                        const tab = (b.tabs || [])[activeTabIndex];
+                        catNo = tab?.sub || tab?.root || undefined;
+                      }
+                      productsToDisplay = catNo ? (categoryProductsMap[String(catNo)] || []) : [];
                     }
                     return (
                       <div key={b.id} style={{ padding: '16px 0', fontFamily: "'Noto Sans KR', sans-serif" }}>
@@ -739,24 +787,7 @@ export default function EventCreatePage() {
                             ))}
                           </div>
                         )}
-                        {b.registerMode === 'category' && (
-                          <div
-                            style={{
-                              padding: '40px 20px',
-                              textAlign: 'center',
-                              color: '#888',
-                              background: '#fafafa',
-                              border: '1px dashed #d9d9d9',
-                              borderRadius: 4,
-                              marginTop: 24,
-                            }}
-                          >
-                            카테고리 상품의 경우 사이트 등록시
-                            <br />
-                            등록된 이미지와 가격을 확인하실수 있습니다.
-                          </div>
-                        )}
-                        {b.registerMode === 'direct' && renderGrid(
+                        {(b.registerMode === 'direct' || b.registerMode === 'category') && renderGrid(
                           b.layoutType === 'tabs'
                             ? (b.tabGridSizes?.[activeTabIndex] ?? b.gridSize ?? 2)
                             : (b.gridSize || 2),

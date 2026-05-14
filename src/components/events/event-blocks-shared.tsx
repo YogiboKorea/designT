@@ -71,6 +71,11 @@ export function YouTubeEmbed({
   );
 }
 
+export interface ProductIcon {
+  icon_url?: string;
+  icon_alt?: string;
+}
+
 export interface ProductLite {
   product_no?: number | string;
   product_name?: string;
@@ -78,79 +83,260 @@ export interface ProductLite {
   summary_description?: string;
   simple_description?: string;
   list_image?: string;
+  image_medium?: string | null;
+  image_small?: string | null;
+  tiny_image?: string | null;
+  detail_image?: string | null;
   price?: number | string;
   sale_price?: number | string | null;
   benefit_price?: number | string | null;
+  decoration_icon_url?: string | null;
+  icons?: Record<string, string | null | undefined> | null;
+  additional_icons?: ProductIcon[];
 }
 
 export interface RenderGridOptions {
+  /**
+   * 이벤트 전체에 적용된 쿠폰 최대 할인율(%). 상품 자체 데이터(sale_price/benefit_price)가
+   * 비어 있을 때 placeholder 카드에 fallback 으로만 표시. 실제 라이브 위젯은 상품별
+   * benefit_price 를 사용하므로 admin 도 그쪽을 우선한다.
+   */
   discountPercent?: number;
 }
 
+const PRETENDARD_STACK = "'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif";
+
+const parseNumber = (v: unknown): number | null => {
+  if (v == null) return null;
+  if (typeof v === 'number' && isFinite(v)) return v;
+  const n = parseFloat(String(v).replace(/[^\d.-]/g, ''));
+  return isFinite(n) ? n : null;
+};
+
+const formatKRW = (val: number) => `${(Number(val) || 0).toLocaleString('ko-KR')}원`;
+
+// 라이브 widget.js renderProducts 와 1:1 매칭되는 admin 미리보기 카드.
+// per-product sale_price / benefit_price 를 그대로 사용해서 라이브와 동일한 가격/뱃지를 보여준다.
+// 데이터가 없는 placeholder 카드에 한해 RenderGridOptions.discountPercent fallback 적용.
 export function renderGrid(cols: number, products: ProductLite[] = [], opts: RenderGridOptions = {}) {
   const safeCols = Math.max(1, Math.min(4, Number(cols) || 2));
-  // 1×1 은 단일 상품 중앙 노출 — placeholder 도 1 개만
   const placeholderCount = safeCols === 1 ? 1 : Math.min(safeCols * safeCols, 4);
-  const itemsToRender = products.length > 0
+  const itemsToRender: (ProductLite | undefined)[] = products.length > 0
     ? (safeCols === 1 ? products.slice(0, 1) : products)
     : Array.from({ length: placeholderCount });
-  // 1×1 은 큰 폰트, 다른 cols 은 cols 비례
-  const titleFontSize = safeCols === 1 ? '20px' : `${18 - safeCols}px`;
-  const subFontSize = safeCols === 1 ? '14px' : `${14 - safeCols}px`;
-  const priceFontSize = safeCols === 1 ? '20px' : `${17 - safeCols}px`;
-  const discountPercent = Math.max(0, Math.min(100, Number(opts.discountPercent) || 0));
-  // 1×1 은 폭을 좁혀 중앙 배치
+
   const containerMaxWidth = safeCols === 1 ? 400 : 800;
+  const fallbackPct = Math.max(0, Math.min(100, Number(opts.discountPercent) || 0));
+
+  // 위젯과 동일한 시각 사이즈. 카드 폰트는 cols 와 무관 (위젯과 동일).
+  const cardFont = {
+    sub: 11,
+    name: 16,
+    original: 10,
+    final: 16,
+    percent: 13,
+  };
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: `repeat(${safeCols},1fr)`, gap: 16, maxWidth: containerMaxWidth, margin: '24px auto' }}>
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: `repeat(${safeCols},1fr)`,
+        gap: 24,
+        maxWidth: containerMaxWidth,
+        margin: '24px auto',
+        fontFamily: PRETENDARD_STACK,
+      }}
+    >
       {itemsToRender.map((p, i) => {
-        const product = (p as ProductLite) || {};
-        const engName = product.eng_product_name || product.summary_description || product.simple_description || '';
-        const original = product.price != null ? Number(product.price) : null;
-        const discounted = original != null && discountPercent > 0
-          ? Math.round(original * (1 - discountPercent / 100))
-          : null;
+        const product = p || ({} as ProductLite);
+        const subText = product.eng_product_name || product.summary_description || product.simple_description || '';
+        const origPrice = parseNumber(product.price);
+        const salePrice = parseNumber(product.sale_price);
+        const benefitPrice = parseNumber(product.benefit_price);
+        const isSale = origPrice != null && salePrice != null && salePrice < origPrice;
+        const isCoupon = benefitPrice != null && origPrice != null && benefitPrice < (isSale ? (salePrice as number) : origPrice);
+
+        let displayPercent: number | null = null;
+        if (isCoupon && origPrice != null) {
+          const base = isSale ? (salePrice as number) : origPrice;
+          if (base > 0 && (benefitPrice as number) >= 0) {
+            displayPercent = Math.round((base - (benefitPrice as number)) / base * 100);
+          }
+        } else if (isSale && origPrice != null && origPrice > 0) {
+          displayPercent = Math.round((origPrice - (salePrice as number)) / origPrice * 100);
+        }
+        // 데이터 없는 placeholder + 이벤트 쿠폰이 있는 경우 fallback 으로만 표시.
+        const isPlaceholder = !product.product_no;
+        if (isPlaceholder && fallbackPct > 0 && origPrice == null) {
+          displayPercent = fallbackPct;
+        }
+
+        const finalPrice =
+          isCoupon && benefitPrice != null ? formatKRW(benefitPrice as number)
+          : isSale && salePrice != null ? formatKRW(salePrice as number)
+          : origPrice != null ? formatKRW(origPrice)
+          : '';
+        const showOriginal = (isSale || isCoupon) && origPrice != null;
+
+        const thumbImg = product.image_medium || product.list_image;
+
+        // 데코 아이콘 — widget 과 동일한 우선순위로 중복 제거.
+        const renderedUrls = new Set<string>();
+        const iconImgs: { url: string; alt: string }[] = [];
+        if (product.decoration_icon_url && !renderedUrls.has(product.decoration_icon_url)) {
+          iconImgs.push({ url: product.decoration_icon_url, alt: 'icon' });
+          renderedUrls.add(product.decoration_icon_url);
+        }
+        (product.additional_icons || []).forEach((icon) => {
+          if (icon?.icon_url && !renderedUrls.has(icon.icon_url)) {
+            iconImgs.push({ url: icon.icon_url, alt: icon.icon_alt || '아이콘' });
+            renderedUrls.add(icon.icon_url);
+          }
+        });
+        if (product.icons && typeof product.icons === 'object') {
+          (['icon_new', 'icon_recom', 'icon_best', 'icon_sale'] as const).forEach((key) => {
+            const url = product.icons?.[key];
+            if (url && !renderedUrls.has(url)) {
+              iconImgs.push({ url, alt: key.replace('icon_', '') });
+              renderedUrls.add(url);
+            }
+          });
+        }
+
+        const percentText = displayPercent && displayPercent > 0 ? `${displayPercent}%` : '';
+
         return (
           <div key={product.product_no || i} style={{ overflow: 'hidden', background: '#fff' }}>
-            <div style={{ aspectRatio: '1 / 1', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8f9fa' }}>
-              {product.list_image ? (
-                <img src={product.list_image} alt={product.product_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            {/* 이미지 영역 — 둥근 모서리 + 데코 아이콘 absolute 컨테이너 */}
+            <div
+              style={{
+                position: 'relative',
+                aspectRatio: '1 / 1',
+                background: '#f8f9fa',
+                overflow: 'hidden',
+                borderRadius: 12,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              {thumbImg ? (
+                <img
+                  src={thumbImg}
+                  alt={product.product_name || ''}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                />
               ) : (
                 <BlockOutlined style={{ fontSize: 40, color: '#d9d9d9' }} />
               )}
-            </div>
-            <div style={{ padding: 10, minHeight: 90 }}>
-              {engName && (
-                <div style={{ fontSize: subFontSize, color: '#888', lineHeight: 1.2, marginBottom: 2 }}>
-                  {engName}
+              {iconImgs.length > 0 && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: 12,
+                    right: 12,
+                    display: 'flex',
+                    gap: 4,
+                    zIndex: 2,
+                    pointerEvents: 'none',
+                  }}
+                >
+                  {iconImgs.map((ic, idx) => (
+                    <img key={idx} src={ic.url} alt={ic.alt} style={{ maxHeight: 56, width: 'auto', display: 'block' }} />
+                  ))}
                 </div>
               )}
-              <div style={{ fontWeight: 500, fontSize: titleFontSize, lineHeight: 1.2 }}>
-                {product.product_name || `상품명 ${i + 1}`}
+            </div>
+
+            {/* 영문/요약 — 민트색 sub 텍스트 */}
+            {subText && (
+              <div
+                style={{
+                  fontSize: cardFont.sub,
+                  color: '#ABB0BA',
+                  marginTop: 12,
+                  lineHeight: 1.3,
+                  letterSpacing: '-0.03em',
+                }}
+              >
+                {subText}
               </div>
-              {original != null && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, flexWrap: 'wrap' }}>
-                  {discounted != null ? (
-                    <>
-                      <span style={{ background: '#4FC3D7', color: '#fff', padding: '2px 8px', borderRadius: 12, fontSize: `${12 - Math.max(safeCols - 2, 0)}px`, fontWeight: 600, lineHeight: 1 }}>
-                        {discountPercent}%
-                      </span>
-                      <span style={{ color: '#999', textDecoration: 'line-through', fontSize: `${13 - Math.max(safeCols - 2, 0)}px` }}>
-                        {original.toLocaleString()}원
-                      </span>
-                      <span style={{ fontWeight: 'bold', fontSize: priceFontSize, color: '#111' }}>
-                        {discounted.toLocaleString()}원
-                      </span>
-                    </>
-                  ) : (
-                    <span style={{ fontWeight: 'bold', fontSize: priceFontSize }}>
-                      {original.toLocaleString()}원
-                    </span>
-                  )}
-                </div>
-              )}
+            )}
+
+            {/* 한글 상품명 */}
+            <div
+              style={{
+                display: 'inline-block',
+                fontSize: cardFont.name,
+                color: '#090909',
+                fontWeight: 400,
+                marginTop: 5,
+                lineHeight: 1.3,
+                letterSpacing: '-0.03em',
+                width: '100%',
+              }}
+            >
+              {product.product_name || (isPlaceholder ? `상품명 ${i + 1}` : '')}
             </div>
+
+            {/* 가격 영역 — 쿠폰/할인 시 정가(취소선) 윗줄 + 뱃지/최종가 아랫줄 */}
+            {(origPrice != null || isPlaceholder) && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  marginTop: 10,
+                  flexWrap: 'wrap',
+                }}
+              >
+                {showOriginal && origPrice != null && (
+                  <span
+                    style={{
+                      order: 1,
+                      width: '100%',
+                      textAlign: 'right',
+                      color: '#CACFD8',
+                      fontSize: cardFont.original,
+                      fontWeight: 400,
+                      textDecoration: 'line-through',
+                      marginTop: 5,
+                    }}
+                  >
+                    {formatKRW(origPrice)}
+                  </span>
+                )}
+                {percentText && (
+                  <span
+                    style={{
+                      order: 2,
+                      background: '#06BEDE',
+                      color: '#fff',
+                      width: 48,
+                      height: 20,
+                      lineHeight: '20px',
+                      textAlign: 'center',
+                      fontWeight: 700,
+                      fontSize: cardFont.percent,
+                      borderRadius: 50,
+                    }}
+                  >
+                    {percentText}
+                  </span>
+                )}
+                <span
+                  style={{
+                    order: 3,
+                    marginLeft: 'auto',
+                    fontSize: cardFont.final,
+                    fontWeight: 400,
+                    color: '#090909',
+                  }}
+                >
+                  {finalPrice}
+                </span>
+              </div>
+            )}
           </div>
         );
       })}
