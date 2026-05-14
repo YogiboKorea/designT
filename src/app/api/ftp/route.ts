@@ -8,6 +8,18 @@ export const dynamic = 'force-dynamic';
 const FTP_REMOTE_DIR = '/web/img/design';
 const PUBLIC_URL_BASE = 'https://yogibo.openhost.cafe24.com/web/img/design';
 
+// cafe24 nginx 가 비-ASCII 파일명을 EUC-KR 로 디코드해서 매칭 실패(403) 가 남.
+// 한글/특수문자가 들어온 파일명은 ASCII-safe 로 강제 변환해서 FTP 에 올린다.
+function sanitizeFilename(raw: string): string {
+  const lastDot = raw.lastIndexOf('.');
+  const base = lastDot > 0 ? raw.slice(0, lastDot) : raw;
+  const ext = lastDot > 0 ? raw.slice(lastDot + 1) : '';
+  const safeBase = base.replace(/[^a-zA-Z0-9_\-]/g, '_').replace(/_+/g, '_').replace(/^_+|_+$/g, '');
+  const safeExt = ext.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+  const final = (safeBase || `upload_${Date.now()}`) + (safeExt ? `.${safeExt}` : '');
+  return final;
+}
+
 export async function POST(req: Request) {
   const client = new ftp.Client();
   client.ftp.verbose = true;
@@ -67,11 +79,14 @@ export async function POST(req: Request) {
       secure: false,
     });
 
+    // 한글/특수문자 sanitize — cafe24 nginx 호환 (EUC-KR 디코드 이슈 회피)
+    const safeFilename = sanitizeFilename(filename);
+
     // Vercel(Linux) 환경에서 ensureDir(/) 명령이 Cafe24 가상 루트 구조와 충돌해 550 에러를 낼 수 있어
     // 폴더가 이미 있다는 전제로 cd/mkd 없이 절대 경로로 다이렉트 업로드한다.
-    await client.uploadFrom(uploadSource, `${FTP_REMOTE_DIR}/${filename}`);
+    await client.uploadFrom(uploadSource, `${FTP_REMOTE_DIR}/${safeFilename}`);
 
-    const imageUrl = `${PUBLIC_URL_BASE}/${filename}`;
+    const imageUrl = `${PUBLIC_URL_BASE}/${safeFilename}`;
 
     if (blobUrlToCleanup) {
       // FTP 가 성공했으니 스테이징용 Blob 은 즉시 삭제 (요금/저장공간 절약).

@@ -151,6 +151,11 @@ export default function MainVisualBuilderPage() {
   const [activeTextId, setActiveTextId] = useState<string | null>(null);
   const [eventId, setEventId] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
+  // 이전 저장 코드의 블롭 URL 손실로 원본 이미지가 없어진 레거시 배너 로드 시 사용자에게 안내.
+  const [legacyImageLost, setLegacyImageLost] = useState(false);
+  // 웹↔모바일 콘텐츠 자동 동기화 — 텍스트 내용/스타일, 배경 이미지(원본/AI 결과), 그래픽 옵션 등을
+  // 한 디바이스에서 바꾸면 반대쪽도 같이 변경. 위치/크기/transform 은 디바이스마다 다르므로 동기화 X.
+  const [syncEnabled, setSyncEnabled] = useState(true);
 
   const applySnsPreset = (type: 'A' | 'B' | 'C' | 'D' | 'E', isInit = false) => {
     setState((prev) => {
@@ -719,10 +724,26 @@ export default function MainVisualBuilderPage() {
             const sections = d.data.sections;
             if (sections && sections.length > 0 && sections[0].type === 'mainVisualPair') {
               const { web, mobile } = sections[0];
+              // 레거시 데이터 보호: blob: URL 은 세션 종료 시 죽으므로 로드할 때 비움.
+              // (예전 저장 로직이 FTP 실패 시 state.bgImage 의 blob: 값을 그대로 DB 에 박은 케이스 대응.)
+              let hadDeadUrl = false;
+              const sanitizeCanvas = (c: typeof web): typeof web => {
+                if (!c) return c;
+                const isDead = (u?: string) => typeof u === 'string' && u.startsWith('blob:');
+                const next = { ...c };
+                if (isDead(next.bgImage)) { next.bgImage = ''; hadDeadUrl = true; }
+                if (isDead(next.bgImageOriginal)) { next.bgImageOriginal = ''; hadDeadUrl = true; }
+                if (isDead(next.secondImage)) { next.secondImage = ''; hadDeadUrl = true; }
+                if (isDead(next.secondImageOriginal)) { next.secondImageOriginal = ''; hadDeadUrl = true; }
+                return next;
+              };
+              const cleanWeb = sanitizeCanvas(web);
+              const cleanMobile = sanitizeCanvas(mobile);
               setState((prev) => ({
-                web: web ? { ...prev.web, ...web } : prev.web,
-                mobile: mobile ? { ...prev.mobile, ...mobile } : prev.mobile,
+                web: cleanWeb ? { ...prev.web, ...cleanWeb } : prev.web,
+                mobile: cleanMobile ? { ...prev.mobile, ...cleanMobile } : prev.mobile,
               }));
+              if (hadDeadUrl) setLegacyImageLost(true);
               lastSnapshotRef.current = Date.now();
             }
           }
@@ -756,8 +777,38 @@ export default function MainVisualBuilderPage() {
   // --------------------------------------------------------------------------
   // 상태 업데이트 헬퍼
   // --------------------------------------------------------------------------
+  // 웹↔모바일 동기화 — "텍스트 문자열만" 미러링.
+  // 배경 이미지/AI 결과/그래픽 옵션/버튼 라벨 등은 모두 디바이스별 독립.
+  // 텍스트 매칭: id 가 디바이스별 프리셋마다 다르므로 (web=w1, mobile=mDef1) index 기준으로 짝지음.
+  //   · 동일 index 의 텍스트끼리 content(text 문자열) 만 복사. style/position 은 target 유지.
+  //   · source 가 더 길면 초과분은 source 그대로 append (이후 사용자가 위치/스타일 조정).
+  //   · source 가 더 짧으면 target 의 초과분도 같이 잘림 (텍스트 삭제 미러링).
+  const mirrorTexts = (
+    target: MainVisualCanvasType,
+    source: MainVisualCanvasType,
+  ): MainVisualCanvasType => {
+    const nextTexts = source.texts.map((src, i) => {
+      const tgt = target.texts[i];
+      if (!tgt) return src;
+      return { ...tgt, text: src.text };
+    });
+    return { ...target, texts: nextTexts };
+  };
+
   const updateCurrent = (patch: Partial<MainVisualState[MainVisualDevice]>) => {
-    setState((prev) => ({ ...prev, [device]: { ...prev[device], ...patch } }));
+    setState((prev) => {
+      const updatedCurrent = { ...prev[device], ...patch };
+      // 텍스트가 바뀐 경우에만 반대쪽도 미러링. (배경/이미지 변경은 디바이스별 독립.)
+      if (!syncEnabled || !('texts' in patch)) {
+        return { ...prev, [device]: updatedCurrent };
+      }
+      const other: MainVisualDevice = device === 'web' ? 'mobile' : 'web';
+      return {
+        ...prev,
+        [device]: updatedCurrent,
+        [other]: mirrorTexts(prev[other], updatedCurrent),
+      };
+    });
   };
 
   const updateTexts = (texts: TextItem[]) => updateCurrent({ texts });
@@ -1867,14 +1918,86 @@ export default function MainVisualBuilderPage() {
   };
 
   // --------------------------------------------------------------------------
-  // 확정 저장: 다운로드 + FTP + DB. 각 단계 실패를 사용자에게 알림
+  // 확정 저장: 다운로드 + FTP + DB. 각 단계 실패를 사용자에게 알림.
+  // 핵심: 합성본(텍스트 박힌 캡처) 은 썸네일용 imageUrl 로만 쓰고,
+  //       bgImage 는 원본 배경 (텍스트 없음) 을 영구 URL 로 저장해 재편집 가능 상태 유지.
   // --------------------------------------------------------------------------
   const handleConfirmSaveAll = async () => {
     setIsSaving(true);
 
     const errors: string[] = [];
     const timestamp = Date.now();
-    const baseName = (title || 'main_visual').replace(/[^\w\-가-힣]/g, '_');
+    // FTP 파일명 — 한글은 cafe24 nginx 의 EUC-KR 디코드 이슈로 403 을 일으키므로 ASCII 만 허용.
+    // 서버 sanitizeFilename 이 또 한 번 보호하지만 여기서도 의도된 baseName 형태로 잡아둔다.
+    const baseName = (title || 'main_visual').replace(/[^\w\-]/g, '_').replace(/_+/g, '_').replace(/^_+|_+$/g, '') || 'main_visual';
+
+    // blob:/data: URL → cafe24 FTP 영구 URL 로 변환. 이미 HTTPS 면 그대로 반환.
+    // 4MB 미만이면 base64 → /api/ftp, 그 이상이면 Vercel Blob 경유 (이벤트 이미지와 동일 패턴).
+    const persistImage = async (rawUrl: string | undefined, filename: string): Promise<string> => {
+      if (!rawUrl) return '';
+      if (/^https?:\/\//.test(rawUrl)) return rawUrl;
+      const r = await fetch(rawUrl);
+      const blob = await r.blob();
+      if (blob.size < 4 * 1024 * 1024) {
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+        const res = await fetch('/api/ftp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ imageBase64: dataUrl, filename }),
+        });
+        const json = await res.json();
+        if (!json.success) throw new Error(json.message || 'FTP 실패');
+        return json.imageUrl as string;
+      }
+      // 큰 이미지는 Vercel Blob 경유 (4.5MB 페이로드 한도 회피)
+      const { upload } = await import('@vercel/blob/client');
+      const { url: blobUrl } = await upload(filename, blob, {
+        access: 'public',
+        handleUploadUrl: '/api/upload',
+        contentType: blob.type || undefined,
+      });
+      const res = await fetch('/api/ftp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ blobUrl, filename }),
+      });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.message || 'FTP 실패');
+      return json.imageUrl as string;
+    };
+
+    // 캔버스의 원본 이미지 필드 (bgImage/bgImageOriginal/secondImage/secondImageOriginal) 들을
+    // 한꺼번에 영구 URL 로 변환. 동일 URL 은 한 번만 업로드.
+    const persistCanvasImages = async (
+      canvas: MainVisualCanvasType,
+      prefix: string,
+    ): Promise<Partial<MainVisualCanvasType>> => {
+      const out: Partial<MainVisualCanvasType> = {};
+      const cache = new Map<string, string>();
+      const get = async (raw: string | undefined, name: string): Promise<string> => {
+        if (!raw) return '';
+        if (cache.has(raw)) return cache.get(raw)!;
+        try {
+          const url = await persistImage(raw, name);
+          cache.set(raw, url);
+          return url;
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          errors.push(`이미지 영구화 ${name}: ${msg}`);
+          return '';
+        }
+      };
+      out.bgImage = await get(canvas.bgImage, `${prefix}_bg_${timestamp}.png`);
+      out.bgImageOriginal = await get(canvas.bgImageOriginal, `${prefix}_bgorig_${timestamp}.png`);
+      out.secondImage = await get(canvas.secondImage, `${prefix}_2nd_${timestamp}.png`);
+      out.secondImageOriginal = await get(canvas.secondImageOriginal, `${prefix}_2ndorig_${timestamp}.png`);
+      return out;
+    };
 
     const toUpload: { key: MainVisualDevice; data: string; filename: string }[] = [];
     if (previewWebUrl) {
@@ -1885,7 +2008,7 @@ export default function MainVisualBuilderPage() {
     }
 
     try {
-      // 1) 로컬 다운로드
+      // 1) 로컬 다운로드 (합성본)
       for (const item of toUpload) {
         const link = document.createElement('a');
         link.href = item.data;
@@ -1896,23 +2019,16 @@ export default function MainVisualBuilderPage() {
         await new Promise((r) => setTimeout(r, 200));
       }
 
-      // 2) FTP 업로드
+      // 2) 합성본 FTP 업로드 (썸네일/완성본 미리보기용).
+      // persistImage 가 dataURL 도 처리 + 4MB 이상이면 Vercel Blob 경유 → Vercel 4.5MB 페이로드 한도(413) 회피.
       const uploaded: Record<string, string> = {};
       for (const item of toUpload) {
         try {
-          const res = await fetch('/api/ftp', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ imageBase64: item.data, filename: item.filename }),
-          });
-          const json = await res.json();
-          if (json.success) {
-            uploaded[item.key] = json.imageUrl;
-          } else {
-            errors.push(`FTP (${item.key}): ${json.message || '업로드 실패'}`);
-          }
-        } catch (err: any) {
-          errors.push(`FTP (${item.key}): ${err?.message || '네트워크 오류'}`);
+          const url = await persistImage(item.data, item.filename);
+          if (url) uploaded[item.key] = url;
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          errors.push(`FTP (${item.key}): ${msg || '네트워크 오류'}`);
         }
       }
 
@@ -1921,6 +2037,13 @@ export default function MainVisualBuilderPage() {
       if (toUpload.length > 0 && Object.keys(uploaded).length === 0) {
         throw new Error('FTP 서버 연동 실패로 DB 기록이 중단되었습니다. Vercel의 환경변수(FTP_USER 등) 설정을 확인하세요.');
       }
+
+      // 2.5) 원본 배경 이미지 영구화 — 재편집 시 텍스트 없는 원본을 다시 띄울 수 있도록.
+      // 합성본을 bgImage 로 저장하면 다음 편집에서 텍스트 중복/blob URL 사망 문제가 생김.
+      const webImgs = await persistCanvasImages(state.web, `${baseName}_web`);
+      const mobileImgs = isSingleMode
+        ? webImgs
+        : await persistCanvasImages(state.mobile, `${baseName}_mobile`);
 
       // 3) DB 기록
       const payload = {
@@ -1931,17 +2054,17 @@ export default function MainVisualBuilderPage() {
             type: 'mainVisualPair',
             web: {
               ...state.web,
-              bgImage: uploaded.web || state.web.bgImage,
-              imageUrl: uploaded.web || '',
+              ...webImgs,
+              imageUrl: uploaded.web || webImgs.bgImage || '',
             },
             mobile: {
               ...state.mobile,
-              bgImage: uploaded.mobile || state.mobile.bgImage,
-              imageUrl: uploaded.mobile || '',
+              ...mobileImgs,
+              imageUrl: uploaded.mobile || mobileImgs.bgImage || '',
             },
           },
         ],
-        imageUrl: uploaded.web || uploaded.mobile || '',
+        imageUrl: uploaded.web || uploaded.mobile || webImgs.bgImage || mobileImgs.bgImage || '',
       };
 
       let dbSaved = false;
@@ -2023,6 +2146,49 @@ export default function MainVisualBuilderPage() {
   return (
     <AppShell>
     <div style={{ minHeight: '100vh', background: '#f4f5f7', fontFamily: 'var(--font-sans)' }}>
+      {/* 레거시 데이터 — 예전 저장 버그로 원본 이미지 URL 이 손실된 배너 안내.
+          썸네일 (`imageUrl`) 은 cafe24 에 남아있지만 편집용 bgImage 는 복구 불가.
+          새 이미지 업로드 + 저장하면 신규 영구화 로직으로 정상 저장됨. */}
+      {legacyImageLost && (
+        <div
+          style={{
+            margin: '12px 24px 0',
+            padding: '14px 18px',
+            background: '#fef3c7',
+            border: '1px solid #fbbf24',
+            borderRadius: 10,
+            color: '#92400e',
+            fontSize: 13,
+            lineHeight: 1.6,
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 12,
+          }}
+        >
+          <span style={{ fontSize: 18, lineHeight: 1 }}>⚠</span>
+          <div style={{ flex: 1 }}>
+            <strong style={{ display: 'block', marginBottom: 4 }}>이전에 작업한 배경 이미지를 불러올 수 없습니다.</strong>
+            예전 버전의 저장 버그로 원본 이미지 링크가 손실되었습니다. 텍스트/레이아웃은 유지되었으니
+            이미지만 다시 업로드한 뒤 저장하면 됩니다. (이후 저장본은 안전하게 보존됩니다.)
+          </div>
+          <button
+            onClick={() => setLegacyImageLost(false)}
+            style={{
+              background: 'transparent',
+              border: 0,
+              fontSize: 18,
+              cursor: 'pointer',
+              color: '#92400e',
+              padding: 0,
+              lineHeight: 1,
+            }}
+            aria-label="닫기"
+          >
+            ×
+          </button>
+        </div>
+      )}
+
       {/* AI 진행 상황 토스트 — 하단 중앙 고정 */}
       {aiStatus && (
         <div
@@ -2223,7 +2389,29 @@ export default function MainVisualBuilderPage() {
               {d === 'web' ? '🖥 웹 (1920×680)' : '📱 모바일 (800×907)'}
             </button>
           ))}
-          <span style={{ marginLeft: 'auto', fontSize: '12px', color: '#9ca3af', paddingRight: '8px' }}>
+          <label
+            style={{
+              marginLeft: 'auto',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              fontSize: 12,
+              color: syncEnabled ? '#2563eb' : '#9ca3af',
+              cursor: 'pointer',
+              paddingRight: 12,
+              userSelect: 'none',
+            }}
+            title="텍스트 문자열만 웹↔모바일 자동 동기화 (스타일/위치 및 이미지는 디바이스별 독립)"
+          >
+            <input
+              type="checkbox"
+              checked={syncEnabled}
+              onChange={(e) => setSyncEnabled(e.target.checked)}
+              style={{ cursor: 'pointer' }}
+            />
+            📝 텍스트 동기화 (웹↔모바일)
+          </label>
+          <span style={{ fontSize: '12px', color: '#9ca3af', paddingRight: '8px' }}>
             현재 편집: {device === 'web' ? '웹' : '모바일'} 캔버스
           </span>
         </div>

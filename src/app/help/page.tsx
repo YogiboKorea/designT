@@ -15,9 +15,10 @@ import { CSSProperties, useEffect, useState } from 'react';
 import Link from 'next/link';
 import AppShell from '@/components/AppShell';
 
-type TabId = 'prompt' | 'page-builder' | 'banner' | 'event';
+type TabId = 'updates' | 'prompt' | 'page-builder' | 'banner' | 'event';
 
 const TABS: { id: TabId; label: string; emoji: string; subtitle: string }[] = [
+  { id: 'updates',      label: '최근 업데이트',           emoji: '🆕', subtitle: '2026-05-14 변경사항 한눈에 보기' },
   { id: 'prompt',       label: 'GPT 프롬프트 사용방법',   emoji: '✨', subtitle: 'ChatGPT 4o 에 그대로 붙여넣을 한글 프롬프트 만들기' },
   { id: 'page-builder', label: '페이지 개발 이용방법',     emoji: '📐', subtitle: '게시판 → 빌더에서 섹션 조립 → 저장' },
   { id: 'banner',       label: '배너 생성 관리방법',       emoji: '🖼️', subtitle: '자사몰 / 스마트스토어 / SNS 배너 만들기' },
@@ -25,13 +26,14 @@ const TABS: { id: TabId; label: string; emoji: string; subtitle: string }[] = [
 ];
 
 export default function HelpPage() {
-  const [tab, setTab] = useState<TabId>('prompt');
+  const [tab, setTab] = useState<TabId>('updates');
 
-  // URL 해시로 초기 탭 결정 + hashchange 동기화
+  // URL 해시로 초기 탭 결정 + hashchange 동기화. 해시 없으면 '최근 업데이트' 가 기본.
   useEffect(() => {
     const sync = () => {
       const h = window.location.hash.slice(1) as TabId;
       if (TABS.some((t) => t.id === h)) setTab(h);
+      else setTab('updates');
     };
     sync();
     window.addEventListener('hashchange', sync);
@@ -76,6 +78,7 @@ export default function HelpPage() {
         </nav>
 
         <main style={S.content}>
+          {tab === 'updates'      && <UpdatesSection />}
           {tab === 'prompt'       && <PromptSection />}
           {tab === 'page-builder' && <PageBuilderSection />}
           {tab === 'banner'       && <BannerSection />}
@@ -83,6 +86,110 @@ export default function HelpPage() {
         </main>
       </div>
     </AppShell>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════
+// 0. 최근 업데이트 (2026-05-14)
+// ════════════════════════════════════════════════════════════════
+function UpdatesSection() {
+  return (
+    <article style={S.article}>
+      <SectionHead
+        emoji="🆕"
+        title="2026-05-14 업데이트"
+        desc="자사몰/스마트스토어 배너와 이벤트 페이지에 추가된 기능 정리. 라이브 위젯(widget.js) 동작도 함께 개선됐습니다."
+      />
+
+      {/* ── 배너 ─────────────────────────────────────────────── */}
+      <Step n={1} title="🖼️ 배너 — 웹↔모바일 텍스트 자동 동기화">
+        <p>자사몰·스마트스토어 배너 제작기에서 <strong>웹 ↔ 모바일 텍스트 문자열을 자동 동기화</strong>합니다. 한 번만 입력하면 양쪽에 같이 들어가요.</p>
+        <Bullets items={[
+          '텍스트 문자열 (내용) 만 동기화 — 한쪽에서 수정해도 반대쪽 같은 index 텍스트가 따라옴',
+          '폰트 크기 / 색상 / 위치는 디바이스별 독립 — 모바일은 모바일 프리셋 그대로',
+          '배경 이미지·AI 결과·그래픽 옵션은 디바이스별 독립 (각각 업로드)',
+          '디바이스 탭 우측 📝 토글로 동기화 ON/OFF — 기본 ON',
+        ]} />
+        <Tip>모바일 가서는 폰트 크기/위치를 모바일 비율(800×907 또는 750×1350)에 맞게 한 번만 조정해두면, 이후 텍스트 수정은 웹에서만 해도 자동 반영됩니다.</Tip>
+      </Step>
+
+      <Step n={2} title="🖼️ 배너 — 배경 이미지 영구 저장 (재편집 복구)">
+        <p>이전에는 저장한 배너를 편집 진입하면 배경 이미지가 사라지는 버그가 있었습니다. 이번 업데이트로 <strong>원본 배경 이미지가 cafe24 FTP 에 영구 저장</strong>되어 재편집 시 그대로 복원됩니다.</p>
+        <Bullets items={[
+          '4MB 미만 이미지: /api/ftp 직접 업로드',
+          '4MB 이상 큰 이미지: Vercel Blob 스테이징 경유 (4.5MB 페이로드 한도 우회)',
+          '한글 파일명도 ASCII 로 자동 변환되어 cafe24 nginx 와 호환 (이전 403 이슈 해결)',
+          '외부 이미지 CORS 자동 프록시 (/api/proxy-image) — 캔버스에서 깨지지 않음',
+        ]} />
+        <Callout type="warn">
+          ⚠ 이전 버전에서 저장된 배너 중 일부는 배경 이미지 링크가 손실되었습니다. 편집 진입 시 상단 노란색 ⚠ 안내 배너가 뜨면, 이미지만 다시 업로드 후 저장하면 됩니다. 이후 저장본은 안전하게 보존됩니다.
+        </Callout>
+      </Step>
+
+      {/* ── 이벤트 ───────────────────────────────────────────── */}
+      <Step n={3} title="🎉 이벤트 — 카테고리 상품 미리보기">
+        <p>이벤트 제작/편집/상세 페이지에서 <strong>카테고리 모드 상품 블록도 실제 상품으로 미리보기</strong>됩니다. 이전엔 "사이트 등록 시 확인 가능" placeholder 만 나왔어요.</p>
+        <Bullets items={[
+          'cafe24 카테고리에 등록된 상품 목록을 받아 그리드로 렌더',
+          '상품별로 즉시할인가 / 쿠폰 할인가가 따로 표시 (라이브 위젯과 동일)',
+          '동일 카테고리는 한 번만 호출 + 캐시',
+        ]} />
+      </Step>
+
+      <Step n={4} title="🎉 이벤트 — 라이브 위젯 카드 디자인 매칭">
+        <p>admin 미리보기 카드가 라이브 위젯(widget.js) 카드와 1:1 동일한 디자인으로 출력됩니다.</p>
+        <Bullets items={[
+          'Pretendard Variable 폰트 명시 적용',
+          '둥근 모서리 이미지(12px) + 우상단 데코 아이콘(Premium / NEW / BEST 등)',
+          '영문/요약 부제 (#ABB0BA), 한글 상품명 (#090909, 16px)',
+          '시안색 % 뱃지 + 정가 취소선 + 최종가 — 라이브와 동일',
+        ]} />
+      </Step>
+
+      <Step n={5} title="🎟️ 이벤트 적용 쿠폰 — admin 편집으로 즉시 라이브 반영">
+        <p>이벤트 편집 페이지의 <strong>💸 이벤트 적용 쿠폰</strong> 셀렉트에 추가/삭제하면, <strong>HTML 재배포 없이 라이브 페이지에 자동 반영</strong>됩니다.</p>
+        <Bullets items={[
+          'widget.js 가 이벤트 데이터의 couponNos 를 읽어서 적용 — 매번 최신 상태로 동기화',
+          '쿠폰을 늘리거나 줄여도 cafe24 임베드 코드 수정 불필요',
+          '단, 라이브에 노출할 쿠폰은 이 목록에 반드시 등록해야 함 (cafe24 에 만들어두기만 해선 안 됨)',
+        ]} />
+        <Callout type="warn">
+          ⚠ 쿠폰 노출 규칙: cafe24 의 적용 가능 상품 조건(<code>available_product</code>)이 일치하는 상품만 위젯에 할인 표시됩니다. 일부 상품에 안 보이면 cafe24 관리자 → 쿠폰 → 적용 조건에서 해당 상품을 추가하세요.
+        </Callout>
+      </Step>
+
+      <Step n={6} title="🎉 이벤트 — 큰 이미지 업로드 안정화">
+        <p>이벤트 페이지에 이미지를 업로드할 때 Vercel 4.5MB 페이로드 한도로 413 에러가 나던 문제 해결.</p>
+        <Bullets items={[
+          '큰 이미지는 자동으로 Vercel Blob 에 스테이징 후 cafe24 FTP 로 이동',
+          '클라이언트 직접 base64 전송 경로는 더 이상 사용 안 함 (한도 회피)',
+          '업로드 완료 후 Blob 은 즉시 정리되어 저장 비용 거의 없음',
+        ]} />
+      </Step>
+
+      {/* ── 라이브 위젯 ───────────────────────────────────────── */}
+      <Step n={7} title="📱 라이브 위젯 — 모바일 grid-3 카드 디자인">
+        <p>cafe24 자사몰 페이지에 임베드된 위젯의 <strong>3-col × 모바일(≤500px)</strong> 레이아웃 미세 조정.</p>
+        <Bullets items={[
+          '카드 간격 24px → 10px',
+          '상품명 폰트 16px → 13px',
+          '할인 % 뱃지: 이미지 좌상단 모서리 붙음 + 우하단만 라운드(탭 모양)',
+          '최종가: 우측 정렬, 14px',
+        ]} />
+      </Step>
+
+      <Step n={8} title="🔧 백엔드 (ychat) — 쿠폰/카테고리 로직 수정">
+        <Bullets items={[
+          '카테고리 상품 조회 endpoint (`/categories/:no/products`) 500 에러 수정 — cafe24 admin API 의 display_group 필수 파라미터 누락 문제',
+          '쿠폰 가격 계산 — 정액 쿠폰(N원 할인) 이 누락되던 비교 로직 버그 수정. 이제 최저가 기준으로 최적 쿠폰 자동 선택',
+          '카테고리 상품 응답에 sale_price / benefit_price / 데코 아이콘 등 풀세트 필드 포함 (단건 상품 응답과 동일 shape)',
+        ]} />
+      </Step>
+
+      <Callout>
+        문의나 추가 개선 요청은 채팅으로 알려주세요. 다음 업데이트 때 같이 반영합니다.
+      </Callout>
+    </article>
   );
 }
 

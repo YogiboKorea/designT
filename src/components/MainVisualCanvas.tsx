@@ -4,6 +4,7 @@ import DraggableText from './DraggableText';
 import DraggableImage from './DraggableImage';
 import DraggableCircleImage from './DraggableCircleImage';
 import { TextItem } from '../app/builder/types';
+import { proxyImageUrl } from '../lib/proxy-image-url';
 import {
   CanvasGradient,
   CircleImageStyle,
@@ -226,7 +227,7 @@ export default function MainVisualCanvas(props: MainVisualCanvasProps) {
         {/* 1) 이미지 — cover 모드 (가장 아래) */}
         {showCoverImage && (
           <img
-            src={bgImage}
+            src={proxyImageUrl(bgImage)}
             alt="background"
             crossOrigin="anonymous"
             draggable={false}
@@ -248,7 +249,7 @@ export default function MainVisualCanvas(props: MainVisualCanvasProps) {
              Type F 는 별도의 원형 마스킹 렌더(아래 2-1, 2-2)를 사용하므로 제외. */}
         {showFreeImage && bgGraphicType !== 'F' && imageTransform && onImageTransformChange && (
           <DraggableImage
-            src={bgImage}
+            src={proxyImageUrl(bgImage)}
             transform={imageTransform}
             onTransformChange={onImageTransformChange}
             canvasWidth={width}
@@ -268,7 +269,7 @@ export default function MainVisualCanvas(props: MainVisualCanvasProps) {
         {/* 2-1) Type F — 모델 이미지 (우측 큰 원). 텍스트처럼 클릭/드래그/리사이즈/더블클릭. */}
         {bgGraphicType === 'F' && bgImage && imageTransform && onImageTransformChange && (
           <DraggableCircleImage
-            src={bgImage}
+            src={proxyImageUrl(bgImage)}
             transform={imageTransform}
             onTransformChange={onImageTransformChange}
             canvasWidth={width}
@@ -286,7 +287,7 @@ export default function MainVisualCanvas(props: MainVisualCanvasProps) {
         {/* 2-2) Type F — 제품 이미지 (우상단 작은 원, 흰 테두리). 동일 인터랙션. */}
         {bgGraphicType === 'F' && secondImage && secondImageTransform && onSecondImageTransformChange && (
           <DraggableCircleImage
-            src={secondImage}
+            src={proxyImageUrl(secondImage)}
             transform={secondImageTransform}
             onTransformChange={onSecondImageTransformChange}
             canvasWidth={width}

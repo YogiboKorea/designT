@@ -148,6 +148,8 @@ export default function MainVisualBuilderPage() {
   const [activeTextId, setActiveTextId] = useState<string | null>(null);
   const [eventId, setEventId] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
+  // 웹↔모바일 텍스트 문자열 자동 동기화. 스타일/위치/이미지는 디바이스별 독립.
+  const [syncEnabled, setSyncEnabled] = useState(true);
 
   const applySnsPreset = (type: 'A' | 'B' | 'C' | 'D' | 'E', isInit = false) => {
     setState((prev) => {
@@ -688,8 +690,38 @@ export default function MainVisualBuilderPage() {
   // --------------------------------------------------------------------------
   // 상태 업데이트 헬퍼
   // --------------------------------------------------------------------------
+  // 웹↔모바일 동기화 — "텍스트 문자열만" 미러링.
+  // 배경 이미지/AI 결과/그래픽 옵션은 디바이스별 독립.
+  // 텍스트 매칭은 id 가 디바이스별 프리셋마다 다르므로 (예: w1 vs mDef1) index 기준.
+  //   · 동일 index 텍스트끼리 content(text 문자열) 만 복사. style/position 은 target 유지.
+  //   · source 가 더 길면 초과분은 source 그대로 append.
+  //   · source 가 더 짧으면 target 의 초과분도 같이 잘림 (삭제 미러링).
+  const mirrorTexts = (
+    target: MainVisualCanvasType,
+    source: MainVisualCanvasType,
+  ): MainVisualCanvasType => {
+    const nextTexts = source.texts.map((src, i) => {
+      const tgt = target.texts[i];
+      if (!tgt) return src;
+      return { ...tgt, text: src.text };
+    });
+    return { ...target, texts: nextTexts };
+  };
+
   const updateCurrent = (patch: Partial<MainVisualState[MainVisualDevice]>) => {
-    setState((prev) => ({ ...prev, [device]: { ...prev[device], ...patch } }));
+    setState((prev) => {
+      const updatedCurrent = { ...prev[device], ...patch };
+      // 텍스트가 바뀐 경우에만 반대쪽도 미러링. (배경/이미지 변경은 디바이스별 독립.)
+      if (!syncEnabled || !('texts' in patch)) {
+        return { ...prev, [device]: updatedCurrent };
+      }
+      const other: MainVisualDevice = device === 'web' ? 'mobile' : 'web';
+      return {
+        ...prev,
+        [device]: updatedCurrent,
+        [other]: mirrorTexts(prev[other], updatedCurrent),
+      };
+    });
   };
 
   const updateTexts = (texts: TextItem[]) => updateCurrent({ texts });
@@ -1674,7 +1706,8 @@ export default function MainVisualBuilderPage() {
 
     const errors: string[] = [];
     const timestamp = Date.now();
-    const baseName = (title || 'main_visual').replace(/[^\w\-가-힣]/g, '_');
+    // FTP 파일명 — 한글은 cafe24 nginx 의 EUC-KR 디코드 이슈로 403 을 일으키므로 ASCII 만 허용.
+    const baseName = (title || 'main_visual').replace(/[^\w\-]/g, '_').replace(/_+/g, '_').replace(/^_+|_+$/g, '') || 'main_visual';
 
     const toUpload: { key: MainVisualDevice; data: string; filename: string }[] = [];
     if (previewWebUrl) {
@@ -2023,7 +2056,29 @@ export default function MainVisualBuilderPage() {
               {d === 'web' ? `🖥 ${MAIN_VISUAL_SIZES.web.label}` : `📱 ${MAIN_VISUAL_SIZES.mobile.label}`}
             </button>
           ))}
-          <span style={{ marginLeft: 'auto', fontSize: '12px', color: '#9ca3af', paddingRight: '8px' }}>
+          <label
+            style={{
+              marginLeft: 'auto',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              fontSize: 12,
+              color: syncEnabled ? '#2563eb' : '#9ca3af',
+              cursor: 'pointer',
+              paddingRight: 12,
+              userSelect: 'none',
+            }}
+            title="텍스트 문자열만 웹↔모바일 자동 동기화 (스타일/위치 및 이미지는 디바이스별 독립)"
+          >
+            <input
+              type="checkbox"
+              checked={syncEnabled}
+              onChange={(e) => setSyncEnabled(e.target.checked)}
+              style={{ cursor: 'pointer' }}
+            />
+            📝 텍스트 동기화 (웹↔모바일)
+          </label>
+          <span style={{ fontSize: '12px', color: '#9ca3af', paddingRight: '8px' }}>
             현재 편집: {device === 'web' ? '웹' : '모바일'} 캔버스
           </span>
         </div>
