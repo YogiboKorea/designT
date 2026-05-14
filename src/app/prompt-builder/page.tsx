@@ -256,13 +256,7 @@ export default function PromptBuilderPage() {
     setResultMainImageUrl('');
     setCopied(false);
 
-    // 필수값 확인
-    for (const f of template.fields) {
-      if (f.required && !fields[f.key]) {
-        setErrorMsg(`"${f.label}" 은 필수 입력입니다.`);
-        return;
-      }
-    }
+    // 필수값 확인 제거 — 비어있어도 생성 진행. 빈 필드는 ChatGPT 가 알아서 보완.
 
     setLoading(true);
     try {
@@ -1155,7 +1149,7 @@ function FieldInput({
     <div style={S.field}>
       <label style={S.fieldLabel}>
         {field.label}
-        {field.required && <span style={S.required}> *</span>}
+        {/* 필수 표시 제거 — 비어 있어도 ChatGPT 가 알아서 생성하도록 변경 */}
       </label>
       {field.type === 'text' && (
         <input
