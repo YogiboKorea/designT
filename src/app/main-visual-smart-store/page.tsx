@@ -1699,7 +1699,10 @@ export default function MainVisualBuilderPage() {
   };
 
   // --------------------------------------------------------------------------
-  // 확정 저장: 다운로드 + FTP + DB. 각 단계 실패를 사용자에게 알림
+  // 확정 저장: 다운로드 + FTP + DB. 각 단계 실패를 사용자에게 알림.
+  // 핵심: 합성본(텍스트 박힌 캡처) 은 imageUrl 로만 쓰고, bgImage 는 원본 배경을
+  //       영구 URL 로 저장해 재편집 시 정상 복구.
+  //       큰 PNG 는 JPEG 압축으로 4MB 미만 만들어 Vercel Blob 의존성 우회.
   // --------------------------------------------------------------------------
   const handleConfirmSaveAll = async () => {
     setIsSaving(true);
@@ -1708,6 +1711,116 @@ export default function MainVisualBuilderPage() {
     const timestamp = Date.now();
     // FTP 파일명 — 한글은 cafe24 nginx 의 EUC-KR 디코드 이슈로 403 을 일으키므로 ASCII 만 허용.
     const baseName = (title || 'main_visual').replace(/[^\w\-]/g, '_').replace(/_+/g, '_').replace(/^_+|_+$/g, '') || 'main_visual';
+
+    // 4MB 초과 이미지를 JPEG 재인코딩 + 필요 시 해상도 축소 — 항상 Vercel 4.5MB 한도 안에 들어오게.
+    const TARGET_BYTES = 4 * 1024 * 1024;
+    const shrinkToBudget = async (blob: Blob, filenameIn: string): Promise<{ blob: Blob; filename: string }> => {
+      if (blob.size < TARGET_BYTES) return { blob, filename: filenameIn };
+      let img: ImageBitmap;
+      try { img = await createImageBitmap(blob); }
+      catch { return { blob, filename: filenameIn }; }
+
+      const tryEncode = async (scale: number, quality: number): Promise<Blob | null> => {
+        const w = Math.max(1, Math.round(img.width * scale));
+        const h = Math.max(1, Math.round(img.height * scale));
+        const cvs = document.createElement('canvas');
+        cvs.width = w; cvs.height = h;
+        const ctx = cvs.getContext('2d');
+        if (!ctx) return null;
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, w, h);
+        ctx.drawImage(img, 0, 0, w, h);
+        return new Promise<Blob | null>((resolve) => cvs.toBlob((b) => resolve(b), 'image/jpeg', quality));
+      };
+
+      const attempts: Array<{ scale: number; quality: number }> = [
+        { scale: 1.0,  quality: 0.9  },
+        { scale: 1.0,  quality: 0.75 },
+        { scale: 1.0,  quality: 0.6  },
+        { scale: 0.85, quality: 0.85 },
+        { scale: 0.75, quality: 0.85 },
+        { scale: 0.6,  quality: 0.8  },
+        { scale: 0.5,  quality: 0.8  },
+        { scale: 0.4,  quality: 0.65 },
+      ];
+      const jpgName = filenameIn.replace(/\.(png|jpe?g|webp|gif)$/i, '.jpg');
+      let smallest: Blob | null = null;
+      for (const a of attempts) {
+        const out = await tryEncode(a.scale, a.quality);
+        if (!out) continue;
+        if (!smallest || out.size < smallest.size) smallest = out;
+        if (out.size < TARGET_BYTES) return { blob: out, filename: jpgName };
+      }
+      if (smallest && smallest.size < blob.size) return { blob: smallest, filename: jpgName };
+      return { blob, filename: filenameIn };
+    };
+
+    // blob:/data: URL → cafe24 FTP 영구 URL 로 변환.
+    const persistImage = async (rawUrl: string | undefined, filenameIn: string): Promise<string> => {
+      if (!rawUrl) return '';
+      if (/^https?:\/\//.test(rawUrl)) return rawUrl;
+      const r = await fetch(rawUrl);
+      let blob = await r.blob();
+      let filename = filenameIn;
+      // 4MB 이상은 JPEG 재인코딩 + 점진 축소로 한도 안에 들어오게 만듦 → Blob 우회
+      ({ blob, filename } = await shrinkToBudget(blob, filename));
+      if (blob.size < 4 * 1024 * 1024) {
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+        const res = await fetch('/api/ftp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ imageBase64: dataUrl, filename }),
+        });
+        const json = await res.json();
+        if (!json.success) throw new Error(json.message || 'FTP 실패');
+        return json.imageUrl as string;
+      }
+      // 압축해도 4MB 이상이면 Vercel Blob 경유 (BLOB_READ_WRITE_TOKEN 필요)
+      const { upload } = await import('@vercel/blob/client');
+      const { url: blobUrl } = await upload(filename, blob, {
+        access: 'public',
+        handleUploadUrl: '/api/upload',
+        contentType: blob.type || undefined,
+      });
+      const res = await fetch('/api/ftp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ blobUrl, filename }),
+      });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.message || 'FTP 실패');
+      return json.imageUrl as string;
+    };
+
+    const persistCanvasImages = async (
+      canvas: MainVisualCanvasType,
+      prefix: string,
+    ): Promise<Partial<MainVisualCanvasType>> => {
+      const out: Partial<MainVisualCanvasType> = {};
+      const cache = new Map<string, string>();
+      const get = async (raw: string | undefined, name: string): Promise<string> => {
+        if (!raw) return '';
+        if (cache.has(raw)) return cache.get(raw)!;
+        try {
+          const url = await persistImage(raw, name);
+          cache.set(raw, url);
+          return url;
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          errors.push(`이미지 영구화 ${name}: ${msg}`);
+          return '';
+        }
+      };
+      out.bgImage = await get(canvas.bgImage, `${prefix}_bg_${timestamp}.png`);
+      out.bgImageOriginal = await get(canvas.bgImageOriginal, `${prefix}_bgorig_${timestamp}.png`);
+      // 스마트스토어 캔버스 타입은 secondImage(Type F 제품 사진) 없음 — 생략
+      return out;
+    };
 
     const toUpload: { key: MainVisualDevice; data: string; filename: string }[] = [];
     if (previewWebUrl) {
@@ -1718,7 +1831,7 @@ export default function MainVisualBuilderPage() {
     }
 
     try {
-      // 1) 로컬 다운로드
+      // 1) 로컬 다운로드 (합성본)
       for (const item of toUpload) {
         const link = document.createElement('a');
         link.href = item.data;
@@ -1729,31 +1842,27 @@ export default function MainVisualBuilderPage() {
         await new Promise((r) => setTimeout(r, 200));
       }
 
-      // 2) FTP 업로드
+      // 2) 합성본 FTP 업로드 (persistImage 가 JPEG 압축으로 4MB 우회)
       const uploaded: Record<string, string> = {};
       for (const item of toUpload) {
         try {
-          const res = await fetch('/api/ftp', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ imageBase64: item.data, filename: item.filename }),
-          });
-          const json = await res.json();
-          if (json.success) {
-            uploaded[item.key] = json.imageUrl;
-          } else {
-            errors.push(`FTP (${item.key}): ${json.message || '업로드 실패'}`);
-          }
-        } catch (err: any) {
-          errors.push(`FTP (${item.key}): ${err?.message || '네트워크 오류'}`);
+          const url = await persistImage(item.data, item.filename);
+          if (url) uploaded[item.key] = url;
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          errors.push(`FTP (${item.key}): ${msg || '네트워크 오류'}`);
         }
       }
 
-      // FTP 전체 실패 시 모드: DB 저장 취소
-      // (FTP 실패로 base64 원본 다이렉트 저장 시 Vercel의 4.5MB Request Payload 제한을 초과해 413 Error & JSON 파싱 에러 유발)
       if (toUpload.length > 0 && Object.keys(uploaded).length === 0) {
         throw new Error('FTP 서버 연동 실패로 DB 기록이 중단되었습니다. Vercel의 환경변수(FTP_USER 등) 설정을 확인하세요.');
       }
+
+      // 2.5) 원본 배경 이미지 영구화 — 재편집 시 텍스트 없는 원본을 다시 띄울 수 있도록.
+      const webImgs = await persistCanvasImages(state.web, `${baseName}_web`);
+      const mobileImgs = isSingleMode
+        ? webImgs
+        : await persistCanvasImages(state.mobile, `${baseName}_mobile`);
 
       // 3) DB 기록
       const payload = {
@@ -1764,17 +1873,17 @@ export default function MainVisualBuilderPage() {
             type: 'mainVisualPair',
             web: {
               ...state.web,
-              bgImage: uploaded.web || state.web.bgImage,
-              imageUrl: uploaded.web || '',
+              ...webImgs,
+              imageUrl: uploaded.web || webImgs.bgImage || '',
             },
             mobile: {
               ...state.mobile,
-              bgImage: uploaded.mobile || state.mobile.bgImage,
-              imageUrl: uploaded.mobile || '',
+              ...mobileImgs,
+              imageUrl: uploaded.mobile || mobileImgs.bgImage || '',
             },
           },
         ],
-        imageUrl: uploaded.web || uploaded.mobile || '',
+        imageUrl: uploaded.web || uploaded.mobile || webImgs.bgImage || mobileImgs.bgImage || '',
       };
 
       let dbSaved = false;

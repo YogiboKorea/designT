@@ -9,6 +9,18 @@ export const dynamic = 'force-dynamic';
 // 4.5MB 페이로드 한도를 우회할 수 있다. 업로드된 Blob URL 은 /api/ftp 가 Cafe24
 // FTP 로 옮긴 뒤 곧장 삭제한다.
 export async function POST(request: Request): Promise<NextResponse> {
+  // BLOB_READ_WRITE_TOKEN 누락 시 즉시 명확한 가이드 반환.
+  // Vercel 대시보드에서 Blob store 를 연결하지 않으면 자동 주입이 안 되어 "Failed to retrieve the client token" 으로 떨어진다.
+  if (!process.env.BLOB_READ_WRITE_TOKEN) {
+    return NextResponse.json(
+      {
+        error:
+          'BLOB_READ_WRITE_TOKEN 환경변수가 설정되지 않았습니다. Vercel 대시보드 → Storage → Blob 을 프로젝트에 연결하거나, 로컬은 `vercel env pull .env.local` 로 가져오세요.',
+      },
+      { status: 503 },
+    );
+  }
+
   const body = (await request.json()) as HandleUploadBody;
 
   try {

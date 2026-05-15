@@ -1931,13 +1931,63 @@ export default function MainVisualBuilderPage() {
     // 서버 sanitizeFilename 이 또 한 번 보호하지만 여기서도 의도된 baseName 형태로 잡아둔다.
     const baseName = (title || 'main_visual').replace(/[^\w\-]/g, '_').replace(/_+/g, '_').replace(/^_+|_+$/g, '') || 'main_visual';
 
+    // 4MB 초과 이미지를 JPEG 로 재인코딩 + 필요 시 해상도 축소.
+    // Vercel 4.5MB 함수 페이로드 한도 안에 무조건 들어오게 만들어 Blob 의존성을 제거.
+    // 품질/스케일을 점진적으로 낮추며 4MB 미만이 되는 가장 가까운 결과를 선택.
+    // 마지막 시도(스케일 0.4, q 0.65) 까지 가도 안 들어가는 경우만 Blob 경로로 폴백.
+    const TARGET_BYTES = 4 * 1024 * 1024;
+    const shrinkToBudget = async (blob: Blob, filenameIn: string): Promise<{ blob: Blob; filename: string }> => {
+      if (blob.size < TARGET_BYTES) return { blob, filename: filenameIn };
+      let img: ImageBitmap;
+      try { img = await createImageBitmap(blob); }
+      catch { return { blob, filename: filenameIn }; }
+
+      const tryEncode = async (scale: number, quality: number): Promise<Blob | null> => {
+        const w = Math.max(1, Math.round(img.width * scale));
+        const h = Math.max(1, Math.round(img.height * scale));
+        const cvs = document.createElement('canvas');
+        cvs.width = w; cvs.height = h;
+        const ctx = cvs.getContext('2d');
+        if (!ctx) return null;
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, w, h);
+        ctx.drawImage(img, 0, 0, w, h);
+        return new Promise<Blob | null>((resolve) => cvs.toBlob((b) => resolve(b), 'image/jpeg', quality));
+      };
+
+      const attempts: Array<{ scale: number; quality: number }> = [
+        { scale: 1.0,  quality: 0.9  },
+        { scale: 1.0,  quality: 0.75 },
+        { scale: 1.0,  quality: 0.6  },
+        { scale: 0.85, quality: 0.85 },
+        { scale: 0.75, quality: 0.85 },
+        { scale: 0.6,  quality: 0.8  },
+        { scale: 0.5,  quality: 0.8  },
+        { scale: 0.4,  quality: 0.65 },
+      ];
+      const jpgName = filenameIn.replace(/\.(png|jpe?g|webp|gif)$/i, '.jpg');
+      let smallest: Blob | null = null;
+      for (const a of attempts) {
+        const out = await tryEncode(a.scale, a.quality);
+        if (!out) continue;
+        if (!smallest || out.size < smallest.size) smallest = out;
+        if (out.size < TARGET_BYTES) return { blob: out, filename: jpgName };
+      }
+      // 모든 시도가 한도를 못 만족 → 가장 작은 결과로 폴백 (Blob 경로로 넘어감)
+      if (smallest && smallest.size < blob.size) return { blob: smallest, filename: jpgName };
+      return { blob, filename: filenameIn };
+    };
+
     // blob:/data: URL → cafe24 FTP 영구 URL 로 변환. 이미 HTTPS 면 그대로 반환.
-    // 4MB 미만이면 base64 → /api/ftp, 그 이상이면 Vercel Blob 경유 (이벤트 이미지와 동일 패턴).
-    const persistImage = async (rawUrl: string | undefined, filename: string): Promise<string> => {
+    // 4MB 미만이면 base64 → /api/ftp, 그 이상이면 Vercel Blob 경유 (BLOB_READ_WRITE_TOKEN 필요).
+    const persistImage = async (rawUrl: string | undefined, filenameIn: string): Promise<string> => {
       if (!rawUrl) return '';
       if (/^https?:\/\//.test(rawUrl)) return rawUrl;
       const r = await fetch(rawUrl);
-      const blob = await r.blob();
+      let blob = await r.blob();
+      let filename = filenameIn;
+      // 4MB 이상은 JPEG 재인코딩 + 점진 축소로 한도 안에 들어오게 만듦 → Blob 우회
+      ({ blob, filename } = await shrinkToBudget(blob, filename));
       if (blob.size < 4 * 1024 * 1024) {
         const dataUrl = await new Promise<string>((resolve, reject) => {
           const reader = new FileReader();
