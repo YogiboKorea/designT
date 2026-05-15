@@ -11,6 +11,7 @@ import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { useRouter, useParams } from 'next/navigation';
 import cafe24Api from '@/lib/cafe24-api';
 import { useMallId } from '@/lib/use-mall-id';
+import { persistImageToFtp } from '@/lib/image-upload';
 import AppShell from '@/components/AppShell';
 import ProductBlockModal from '@/components/events/ProductBlockModal';
 import {
@@ -436,8 +437,9 @@ export default function EventEditPage() {
     setTextModalVisible(false);
   };
 
-  // 이미지 블록을 Vercel Blob 에 스테이징한 뒤 Cafe24 FTP 로 옮기고 영구 URL 로 교체.
-  // Vercel 서버리스 함수의 4.5MB 페이로드 한도를 회피하기 위해 브라우저 → Blob 직접 업로드.
+  // 이미지 블록을 cafe24 FTP 영구 URL 로 교체.
+  // persistImageToFtp 가 4MB 이상은 JPEG 압축 + 점진 축소로 한도 안에 들어오게 만들고
+  // multipart/form-data 로 전송 → 대부분 Vercel Blob 의존성 없이 통과.
   const uploadBlockImage = async (b: EventBlock): Promise<EventBlock> => {
     if (b.type !== 'image' || !b.src) return b;
     if (/^https?:\/\//.test(b.src) && !b.file) return b;
@@ -454,21 +456,8 @@ export default function EventEditPage() {
     const ext = (b.file?.name?.split('.').pop() || mimeExt || 'png').toLowerCase();
     const filename = `event_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
 
-    const { upload } = await import('@vercel/blob/client');
-    const { url: blobUrl } = await upload(filename, fileBlob, {
-      access: 'public',
-      handleUploadUrl: '/api/upload',
-      contentType: fileBlob.type || undefined,
-    });
-
-    const ftpRes = await fetch('/api/ftp', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ blobUrl, filename }),
-    });
-    const json = await ftpRes.json();
-    if (!json.success) throw new Error(json.message || 'FTP 업로드 실패');
-    return { ...b, src: json.imageUrl, file: undefined, hash: undefined };
+    const finalUrl = await persistImageToFtp(fileBlob, filename);
+    return { ...b, src: finalUrl, file: undefined, hash: undefined };
   };
 
   const handleSave = async () => {
