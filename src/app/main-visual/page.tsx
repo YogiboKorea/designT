@@ -1931,11 +1931,11 @@ export default function MainVisualBuilderPage() {
     // 서버 sanitizeFilename 이 또 한 번 보호하지만 여기서도 의도된 baseName 형태로 잡아둔다.
     const baseName = (title || 'main_visual').replace(/[^\w\-]/g, '_').replace(/_+/g, '_').replace(/^_+|_+$/g, '') || 'main_visual';
 
-    // 4MB 초과 이미지를 JPEG 로 재인코딩 + 필요 시 해상도 축소.
-    // Vercel 4.5MB 함수 페이로드 한도 안에 무조건 들어오게 만들어 Blob 의존성을 제거.
-    // 품질/스케일을 점진적으로 낮추며 4MB 미만이 되는 가장 가까운 결과를 선택.
-    // 마지막 시도(스케일 0.4, q 0.65) 까지 가도 안 들어가는 경우만 Blob 경로로 폴백.
-    const TARGET_BYTES = 4 * 1024 * 1024;
+    // 3MB 초과 이미지를 JPEG 로 재인코딩 + 필요 시 해상도 축소.
+    // 3MB 목표 = Vercel 4.5MB 함수 페이로드 한도 안에 충분한 여유 확보.
+    // 품질/스케일을 점진적으로 낮추며 가능한 한 빠르게 한도 안에 들어오는 결과를 선택.
+    // 마지막 시도까지 가도 안 들어가는 극단 케이스만 Blob 경로로 폴백.
+    const TARGET_BYTES = 3 * 1024 * 1024;
     const shrinkToBudget = async (blob: Blob, filenameIn: string): Promise<{ blob: Blob; filename: string }> => {
       if (blob.size < TARGET_BYTES) return { blob, filename: filenameIn };
       let img: ImageBitmap;
@@ -1956,14 +1956,15 @@ export default function MainVisualBuilderPage() {
       };
 
       const attempts: Array<{ scale: number; quality: number }> = [
-        { scale: 1.0,  quality: 0.9  },
-        { scale: 1.0,  quality: 0.75 },
-        { scale: 1.0,  quality: 0.6  },
-        { scale: 0.85, quality: 0.85 },
-        { scale: 0.75, quality: 0.85 },
-        { scale: 0.6,  quality: 0.8  },
-        { scale: 0.5,  quality: 0.8  },
+        { scale: 1.0,  quality: 0.85 },
+        { scale: 1.0,  quality: 0.7  },
+        { scale: 0.85, quality: 0.8  },
+        { scale: 0.75, quality: 0.8  },
+        { scale: 0.6,  quality: 0.75 },
+        { scale: 0.5,  quality: 0.7  },
         { scale: 0.4,  quality: 0.65 },
+        { scale: 0.3,  quality: 0.6  },
+        { scale: 0.25, quality: 0.55 },
       ];
       const jpgName = filenameIn.replace(/\.(png|jpe?g|webp|gif)$/i, '.jpg');
       let smallest: Blob | null = null;
@@ -1973,13 +1974,15 @@ export default function MainVisualBuilderPage() {
         if (!smallest || out.size < smallest.size) smallest = out;
         if (out.size < TARGET_BYTES) return { blob: out, filename: jpgName };
       }
-      // 모든 시도가 한도를 못 만족 → 가장 작은 결과로 폴백 (Blob 경로로 넘어감)
+      // 모든 시도가 한도를 못 만족 → 가장 작은 결과 반환 (Blob 경로로 넘어감)
       if (smallest && smallest.size < blob.size) return { blob: smallest, filename: jpgName };
       return { blob, filename: filenameIn };
     };
 
     // blob:/data: URL → cafe24 FTP 영구 URL 로 변환. 이미 HTTPS 면 그대로 반환.
-    // 4MB 미만이면 base64 → /api/ftp, 그 이상이면 Vercel Blob 경유 (BLOB_READ_WRITE_TOKEN 필요).
+    // 흐름: shrinkToBudget 이 4MB 미만으로 압축 → multipart/form-data 로 /api/ftp 전송.
+    //       multipart 는 base64 와 달리 33% 부풀기 없어 Vercel 4.5MB 페이로드 한도에 안전하게 들어감.
+    //       압축해도 4MB 이상인 극단 케이스만 Vercel Blob 경유 (BLOB_READ_WRITE_TOKEN 필요).
     const persistImage = async (rawUrl: string | undefined, filenameIn: string): Promise<string> => {
       if (!rawUrl) return '';
       if (/^https?:\/\//.test(rawUrl)) return rawUrl;
@@ -1989,22 +1992,14 @@ export default function MainVisualBuilderPage() {
       // 4MB 이상은 JPEG 재인코딩 + 점진 축소로 한도 안에 들어오게 만듦 → Blob 우회
       ({ blob, filename } = await shrinkToBudget(blob, filename));
       if (blob.size < 4 * 1024 * 1024) {
-        const dataUrl = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result as string);
-          reader.onerror = reject;
-          reader.readAsDataURL(blob);
-        });
-        const res = await fetch('/api/ftp', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ imageBase64: dataUrl, filename }),
-        });
+        const form = new FormData();
+        form.append('file', new File([blob], filename, { type: blob.type || 'image/jpeg' }));
+        const res = await fetch('/api/ftp', { method: 'POST', body: form });
         const json = await res.json();
         if (!json.success) throw new Error(json.message || 'FTP 실패');
         return json.imageUrl as string;
       }
-      // 큰 이미지는 Vercel Blob 경유 (4.5MB 페이로드 한도 회피)
+      // 압축해도 4MB 이상인 극단 케이스 — Vercel Blob 경유
       const { upload } = await import('@vercel/blob/client');
       const { url: blobUrl } = await upload(filename, blob, {
         access: 'public',
