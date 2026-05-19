@@ -25,13 +25,23 @@ export default function DraggableText({ item, isActive, onSelect, onUpdate, onDe
       if (isDragging && dragRef.current) {
         const parent = dragRef.current.parentElement;
         if (parent) {
+          // 캔버스가 CSS transform: scale(...) 로 줄어들어 있을 수 있어서
+          // 화면 좌표(getBoundingClientRect)와 레이아웃 좌표(offsetWidth) 가 다름.
+          // 내부 좌표계(레이아웃 = 캔버스 1920×680 등)로 통일해 계산.
           const rect = parent.getBoundingClientRect();
-          let newX = e.clientX - rect.left - offsetRef.current.x;
-          let newY = e.clientY - rect.top - offsetRef.current.y;
-          
-          newX = Math.max(0, Math.min(newX, rect.width - dragRef.current.offsetWidth));
-          newY = Math.max(0, Math.min(newY, rect.height - dragRef.current.offsetHeight));
-          
+          const layoutW = parent.offsetWidth || rect.width;
+          const layoutH = parent.offsetHeight || rect.height;
+          const scaleX = rect.width / layoutW;
+          const scaleY = rect.height / layoutH;
+
+          const ptrX = (e.clientX - rect.left) / scaleX;
+          const ptrY = (e.clientY - rect.top) / scaleY;
+          let newX = ptrX - offsetRef.current.x;
+          let newY = ptrY - offsetRef.current.y;
+
+          newX = Math.max(0, Math.min(newX, layoutW - dragRef.current.offsetWidth));
+          newY = Math.max(0, Math.min(newY, layoutH - dragRef.current.offsetHeight));
+
           if (onUpdate) onUpdate(id, text, { x: newX, y: newY }, style);
         }
       }
@@ -56,10 +66,18 @@ export default function DraggableText({ item, isActive, onSelect, onUpdate, onDe
     if (isPreview) return;
     setIsDragging(true);
     if (dragRef.current) {
-      const rect = dragRef.current.getBoundingClientRect();
+      // offset 도 내부 좌표계(unscaled) 로 저장해야 mousemove 와 단위가 맞음.
+      const dragRect = dragRef.current.getBoundingClientRect();
+      const parent = dragRef.current.parentElement;
+      let scaleX = 1, scaleY = 1;
+      if (parent) {
+        const parentRect = parent.getBoundingClientRect();
+        scaleX = parentRect.width / (parent.offsetWidth || parentRect.width);
+        scaleY = parentRect.height / (parent.offsetHeight || parentRect.height);
+      }
       offsetRef.current = {
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top
+        x: (e.clientX - dragRect.left) / scaleX,
+        y: (e.clientY - dragRect.top) / scaleY,
       };
     }
   };
