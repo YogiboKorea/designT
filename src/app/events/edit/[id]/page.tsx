@@ -169,7 +169,23 @@ export default function EventEditPage() {
 
   // 영역/모달 상태
   const [addingMode, setAddingMode] = useState(false);
-  const [addType, setAddType] = useState<'link' | 'coupon' | null>(null);
+  const [addType, setAddType] = useState<'link' | 'coupon' | 'tab' | null>(null);
+
+  // 탭 이동 region 의 대상 옵션 — 현재 이벤트의 모든 tabs 모드 product_group 블록의 각 탭을 평탄화.
+  const tabTargetOptions = useMemo(() => {
+    const opts: { value: string; label: string }[] = [];
+    blocks.forEach((b, bi) => {
+      if (b.type !== 'product_group' || b.layoutType !== 'tabs') return;
+      const blockLabel = `상품 블록 ${bi + 1}`;
+      (b.tabs || []).forEach((t, i) => {
+        opts.push({
+          value: `${b.id}::${i}`,
+          label: `${blockLabel} → 탭${i + 1}${t.title ? ` (${t.title})` : ''}`,
+        });
+      });
+    });
+    return opts;
+  }, [blocks]);
   const [pendingRegion, setPendingRegion] = useState<RegionItem | null>(null);
   const [dragStartPos, setDragStart] = useState<{ x: number; y: number } | null>(null);
   const [dragCurrent, setDragCurrent] = useState<{ x: number; y: number } | null>(null);
@@ -330,10 +346,23 @@ export default function EventEditPage() {
       if (!href) { msgApi.error('URL을 입력하세요.'); return; }
       if (!/^https?:\/\//.test(href)) href = 'https://' + href;
       updated.href = href;
+      delete updated.coupon;
+      delete updated.tabTarget;
+    } else if (addType === 'tab') {
+      const tabKey = (vals.tabTarget || '').trim();
+      if (!tabKey) { msgApi.error('이동할 탭을 선택하세요.'); return; }
+      const [blockId, idxStr] = tabKey.split('::');
+      const tabIndex = parseInt(idxStr, 10);
+      if (!blockId || !isFinite(tabIndex)) { msgApi.error('탭 정보가 올바르지 않습니다.'); return; }
+      updated.tabTarget = { blockId, tabIndex };
+      delete updated.href;
+      delete updated.coupon;
     } else {
       const coupon = (vals.coupon || []).join(',');
       if (!coupon) { msgApi.error('쿠폰을 선택하거나 입력하세요.'); return; }
       updated.coupon = coupon;
+      delete updated.href;
+      delete updated.tabTarget;
     }
     setBlocks((prev) => prev.map((b) => (b.id === selectedId && b.type === 'image' ? { ...b, regions: [...(b.regions || []), updated] } : b)));
     setMapModalVisible(false);
@@ -347,6 +376,7 @@ export default function EventEditPage() {
     setEditingRegion(r);
     setEditModalVisible(true);
     if (r.coupon) editForm.setFieldsValue({ coupon: r.coupon.split(',') });
+    else if (r.tabTarget) editForm.setFieldsValue({ tabTarget: `${r.tabTarget.blockId}::${r.tabTarget.tabIndex}` });
     else editForm.setFieldsValue({ href: r.href });
   };
   const applyEditRegion = () => {
@@ -358,11 +388,18 @@ export default function EventEditPage() {
           if (r.id !== editingRegion?.id) return r;
           if (r.coupon != null) {
             const coupon = (vals.coupon || []).join(',');
-            return { ...r, coupon, href: undefined };
+            return { ...r, coupon, href: undefined, tabTarget: undefined };
+          }
+          if (r.tabTarget) {
+            const tabKey = (vals.tabTarget || '').trim();
+            const [blockId, idxStr] = tabKey.split('::');
+            const tabIndex = parseInt(idxStr, 10);
+            if (!blockId || !isFinite(tabIndex)) return r;
+            return { ...r, tabTarget: { blockId, tabIndex }, href: undefined, coupon: undefined };
           }
           let href = (vals.href || '').trim();
           if (!/^https?:\/\//.test(href)) href = 'https://' + href;
-          return { ...r, href, coupon: undefined };
+          return { ...r, href, coupon: undefined, tabTarget: undefined };
         });
         return { ...b, regions };
       })
@@ -598,6 +635,11 @@ export default function EventEditPage() {
                   if (!selectedBlock || selectedBlock.type !== 'image') { msgApi.info('영역을 추가할 이미지 블록을 선택하세요.'); return; }
                   setAddType('coupon'); setAddingMode(true);
                 }}>쿠폰 추가</Button>
+                <Button icon={<BlockOutlined />} onClick={() => {
+                  if (!selectedBlock || selectedBlock.type !== 'image') { msgApi.info('영역을 추가할 이미지 블록을 선택하세요.'); return; }
+                  if (tabTargetOptions.length === 0) { msgApi.warning('탭 모드 상품 블록을 먼저 추가해야 탭 이동 영역을 만들 수 있습니다.'); return; }
+                  setAddType('tab'); setAddingMode(true);
+                }}>탭 이동 추가</Button>
                 <Button icon={<BlockOutlined />} onClick={() => openProductBlockModal()}>상품 추가</Button>
                 <Button icon={<VideoCameraAddOutlined />} onClick={() => openVideoModal()}>YouTube 추가</Button>
                 <Button icon={<FontSizeOutlined />} onClick={() => openTextModal()}>텍스트 추가</Button>
@@ -743,15 +785,21 @@ export default function EventEditPage() {
         initialData={editingProductBlock}
       />
 
-      <Modal open={mapModalVisible} title={addType === 'link' ? 'URL 영역 설정' : '쿠폰 영역 설정'}
+      <Modal open={mapModalVisible} title={addType === 'link' ? 'URL 영역 설정' : addType === 'tab' ? '탭 이동 영역 설정' : '쿠폰 영역 설정'}
         onCancel={() => { setMapModalVisible(false); setPendingRegion(null); setAddingMode(false); setAddType(null); mapForm.resetFields(); }}
         onOk={saveRegion} okText="적용">
         <Form form={mapForm} layout="vertical">
-          {addType === 'link' ? (
+          {addType === 'link' && (
             <Form.Item name="href" label="URL" rules={[{ required: true, message: 'URL을 입력해주세요.' }]}>
               <Input placeholder="https://example.com" />
             </Form.Item>
-          ) : (
+          )}
+          {addType === 'tab' && (
+            <Form.Item name="tabTarget" label="이동할 탭" rules={[{ required: true, message: '이동할 탭을 선택하세요.' }]}>
+              <Select placeholder="탭 모드 상품 블록의 탭 선택" options={tabTargetOptions} />
+            </Form.Item>
+          )}
+          {addType === 'coupon' && (
             <Form.Item name="coupon" label="쿠폰 선택 혹은 번호 입력" rules={[{ required: true, message: '쿠폰을 하나 이상 선택/입력하세요.' }]}>
               <Select mode="tags" options={couponOptions} tokenSeparators={[',']} />
             </Form.Item>
@@ -769,6 +817,10 @@ export default function EventEditPage() {
           {editingRegion?.coupon ? (
             <Form.Item name="coupon" label="쿠폰 선택 혹은 번호 입력" rules={[{ required: true, message: '쿠폰을 하나 이상 선택/입력하세요.' }]}>
               <Select mode="tags" options={couponOptions} tokenSeparators={[',']} />
+            </Form.Item>
+          ) : editingRegion?.tabTarget ? (
+            <Form.Item name="tabTarget" label="이동할 탭" rules={[{ required: true, message: '이동할 탭을 선택하세요.' }]}>
+              <Select options={tabTargetOptions} />
             </Form.Item>
           ) : (
             <Form.Item name="href" label="URL" rules={[{ required: true, message: 'URL을 입력하세요.' }]}>

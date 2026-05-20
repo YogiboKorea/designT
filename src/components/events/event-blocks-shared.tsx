@@ -354,6 +354,12 @@ export interface RegionItem {
   hRatio: number;
   href?: string;
   coupon?: string;
+  /**
+   * 이벤트 페이지 내 탭으로 이동하는 영역.
+   * widget.js 가 클릭 시 해당 product_group 블록의 i 번째 탭을 활성화하고 스크롤.
+   * href / coupon 과 상호 배타적.
+   */
+  tabTarget?: { blockId: string; tabIndex: number };
 }
 
 export interface EventBlock {
