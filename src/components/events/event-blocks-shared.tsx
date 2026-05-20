@@ -234,7 +234,7 @@ export function renderGrid(cols: number, products: ProductLite[] = [], opts: Ren
                 <div
                   style={{
                     position: 'absolute',
-                    top: 12,
+                    bottom: 12,
                     right: 12,
                     display: 'flex',
                     gap: 4,
@@ -243,7 +243,7 @@ export function renderGrid(cols: number, products: ProductLite[] = [], opts: Ren
                   }}
                 >
                   {iconImgs.map((ic, idx) => (
-                    <img key={idx} src={ic.url} alt={ic.alt} style={{ maxHeight: 56, width: 'auto', display: 'block' }} />
+                    <img key={idx} src={ic.url} alt={ic.alt} style={{ width: '100%', maxWidth: 40, height: 'auto', display: 'block' }} />
                   ))}
                 </div>
               )}
