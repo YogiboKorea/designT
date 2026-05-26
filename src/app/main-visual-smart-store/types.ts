@@ -195,7 +195,7 @@ export function createEmptyMainVisualState(): MainVisualState {
         {
           id: t + 'm1',
           text: '글로벌 NO.1 베스트 셀러',
-          position: { x: 135, y: 160 },
+          position: { x: 135, y: 300 },
           style: {
             color: '#252525',
             fontSize: 38,
@@ -210,7 +210,7 @@ export function createEmptyMainVisualState(): MainVisualState {
         {
           id: t + 'm2',
           text: 'YOGIBO MAX',
-          position: { x: 135, y: 222 },
+          position: { x: 135, y: 362 },
           style: {
             color: '#FFFFFF',
             fontSize: 76,
@@ -226,7 +226,7 @@ export function createEmptyMainVisualState(): MainVisualState {
         {
           id: t + 'm3',
           text: '5초에 1개씩 판매되는 빈백 소파',
-          position: { x: 135, y: 322 },
+          position: { x: 135, y: 462 },
           style: {
             color: '#252525',
             fontSize: 26,
@@ -241,7 +241,7 @@ export function createEmptyMainVisualState(): MainVisualState {
         {
           id: t + 'm4',
           text: '요기보 맥스 →',
-          position: { x: 265, y: 1207 },
+          position: { x: 265, y: 1000 },
           style: {
             color: '#FFFFFF',
             backgroundColor: BUTTON_BG,

@@ -518,10 +518,10 @@ export default function MainVisualBuilderPage() {
             ],
           },
           texts: [
-            { id: t + 'mDef1', text: '글로벌 NO.1 베스트 셀러', position: { x: 135, y: 160 }, style: { color: '#252525', fontSize: 38, fontWeight: 700, textAlign: 'center', lineHeight: 1, letterSpacing: -0.76, fontFamily: PF, width: 480 } },
-            { id: t + 'mDef2', text: 'YOGIBO MAX', position: { x: 135, y: 222 }, style: { color: '#FFFFFF', fontSize: 76, fontWeight: 800, textAlign: 'center', lineHeight: 1, letterSpacing: -1.52, fontFamily: PF, textShadow: '0 2px 10px #BCB29B', width: 480 } },
-            { id: t + 'mDef3', text: '5초에 1개씩 판매되는 빈백 소파', position: { x: 135, y: 322 }, style: { color: '#252525', fontSize: 26, fontWeight: 400, textAlign: 'center', lineHeight: 40, letterSpacing: -0.78, fontFamily: PF, width: 480 } },
-            { id: t + 'mDef4', text: '요기보 맥스 →', position: { x: 265, y: 1207 }, style: { color: '#FFFFFF', backgroundColor: '#45B3C2', fontSize: 26, fontWeight: 600, textAlign: 'center', lineHeight: 1, letterSpacing: -0.52, fontFamily: PF, isPill: true } },
+            { id: t + 'mDef1', text: '글로벌 NO.1 베스트 셀러', position: { x: 135, y: 300 }, style: { color: '#252525', fontSize: 38, fontWeight: 700, textAlign: 'center', lineHeight: 1, letterSpacing: -0.76, fontFamily: PF, width: 480 } },
+            { id: t + 'mDef2', text: 'YOGIBO MAX', position: { x: 135, y: 362 }, style: { color: '#FFFFFF', fontSize: 76, fontWeight: 800, textAlign: 'center', lineHeight: 1, letterSpacing: -1.52, fontFamily: PF, textShadow: '0 2px 10px #BCB29B', width: 480 } },
+            { id: t + 'mDef3', text: '5초에 1개씩 판매되는 빈백 소파', position: { x: 135, y: 462 }, style: { color: '#252525', fontSize: 26, fontWeight: 400, textAlign: 'center', lineHeight: 40, letterSpacing: -0.78, fontFamily: PF, width: 480 } },
+            { id: t + 'mDef4', text: '요기보 맥스 →', position: { x: 265, y: 1000 }, style: { color: '#FFFFFF', backgroundColor: '#45B3C2', fontSize: 26, fontWeight: 600, textAlign: 'center', lineHeight: 1, letterSpacing: -0.52, fontFamily: PF, isPill: true } },
           ],
         };
       } else if (type === 'A') {
