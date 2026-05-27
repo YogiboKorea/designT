@@ -412,31 +412,38 @@ export default function EventDetailPage() {
                   const title = block.noticeTitle || '이벤트 유의사항';
                   const isOpen = !!previewActiveTabs[`__notice_${blockId || ''}`];
                   if (!block.noticeImage && !block.noticeText) return null;
+                  const toggle = () => setPreviewActiveTabs((prev) => ({ ...prev, [`__notice_${blockId || ''}`]: isOpen ? 0 : 1 }));
                   return (
-                    <div key={blockId} style={{ maxWidth: 800, margin: '24px auto', fontFamily: 'var(--font-sans)' }}>
-                      <button
-                        type="button"
-                        onClick={() => setPreviewActiveTabs((prev) => ({ ...prev, [`__notice_${blockId || ''}`]: isOpen ? 0 : 1 }))}
-                        style={{
-                          width: '100%', padding: '16px 20px', background: '#f5f5f5',
-                          border: '1px solid #e0e0e0', borderRadius: 6,
-                          fontSize: 15, fontWeight: 600, color: '#333', cursor: 'pointer',
-                          display: 'flex', justifyContent: 'space-between', alignItems: 'center', textAlign: 'left',
-                        }}
-                      >
-                        <span>{title}</span>
-                        <span style={{ transition: 'transform 0.3s ease', fontSize: 12, transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>▾</span>
-                      </button>
-                      <div style={{ overflow: 'hidden', maxHeight: isOpen ? 4000 : 0, transition: 'max-height 0.4s ease' }}>
-                        <div style={{ padding: '16px 20px', background: '#fafafa', border: '1px solid #e0e0e0', borderTop: 'none', borderRadius: '0 0 6px 6px' }}>
-                          {block.noticeImage && (
-                            <img src={block.noticeImage} alt={title} style={{ maxWidth: '100%', display: 'block', borderRadius: 4, marginBottom: block.noticeText ? 14 : 0 }} />
-                          )}
-                          {block.noticeText && (
-                            <div style={{ fontSize: 14, color: '#444', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{block.noticeText}</div>
-                          )}
+                    <div key={blockId} style={{ position: 'relative', margin: '0 auto', width: '100%', maxWidth: 800, fontFamily: 'var(--font-sans)' }}>
+                      {block.noticeImage ? (
+                        <button
+                          type="button"
+                          onClick={toggle}
+                          aria-label={title}
+                          style={{ width: '100%', padding: 0, margin: 0, border: 0, background: 'transparent', cursor: 'pointer', display: 'block', fontSize: 0 }}
+                        >
+                          <img src={block.noticeImage} alt={title} style={{ maxWidth: '100%', height: 'auto', display: 'block', margin: '0 auto' }} />
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={toggle}
+                          style={{
+                            width: '100%', padding: '16px 20px', background: '#f5f5f5',
+                            border: '1px solid #e0e0e0', borderRadius: 6,
+                            fontSize: 15, fontWeight: 600, color: '#333', cursor: 'pointer',
+                            display: 'flex', justifyContent: 'space-between', alignItems: 'center', textAlign: 'left', margin: '24px 0',
+                          }}
+                        >
+                          <span>{title}</span>
+                          <span style={{ transition: 'transform 0.3s ease', fontSize: 12, transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>▾</span>
+                        </button>
+                      )}
+                      {block.noticeText && (
+                        <div style={{ overflow: 'hidden', maxHeight: isOpen ? 4000 : 0, transition: 'max-height 0.4s ease' }}>
+                          <div style={{ padding: '16px 4px', fontSize: 14, color: '#444', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{block.noticeText}</div>
                         </div>
-                      </div>
+                      )}
                     </div>
                   );
                 }
