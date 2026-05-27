@@ -10,8 +10,10 @@
  * 호출 측은 그냥 persistImageToFtp(blob, filename) 하면 cafe24 영구 URL 이 돌아옴.
  */
 
-const TARGET_BYTES = 3 * 1024 * 1024;
-const MULTIPART_LIMIT_BYTES = 4 * 1024 * 1024;
+// Vercel 4.5MB 한도 대비 여유 폭 — multipart 헤더/encoding overhead 감안.
+// 더 보수적으로 2MB 타겟, 3MB 미만이면 multipart 로 전송.
+const TARGET_BYTES = 2 * 1024 * 1024;
+const MULTIPART_LIMIT_BYTES = 3 * 1024 * 1024;
 
 /**
  * 4MB 초과 이미지를 JPEG 재인코딩 + 필요 시 해상도 축소.
@@ -38,15 +40,17 @@ async function shrinkToBudget(blob: Blob, filenameIn: string): Promise<{ blob: B
   };
 
   const attempts: Array<{ scale: number; quality: number }> = [
-    { scale: 1.0,  quality: 0.85 },
-    { scale: 1.0,  quality: 0.7  },
-    { scale: 0.85, quality: 0.8  },
-    { scale: 0.75, quality: 0.8  },
-    { scale: 0.6,  quality: 0.75 },
-    { scale: 0.5,  quality: 0.7  },
-    { scale: 0.4,  quality: 0.65 },
-    { scale: 0.3,  quality: 0.6  },
-    { scale: 0.25, quality: 0.55 },
+    { scale: 1.0,  quality: 0.82 },
+    { scale: 1.0,  quality: 0.65 },
+    { scale: 0.85, quality: 0.78 },
+    { scale: 0.75, quality: 0.78 },
+    { scale: 0.6,  quality: 0.72 },
+    { scale: 0.5,  quality: 0.68 },
+    { scale: 0.4,  quality: 0.6  },
+    { scale: 0.3,  quality: 0.55 },
+    { scale: 0.25, quality: 0.5  },
+    { scale: 0.18, quality: 0.45 },  // 초대형 이미지 최후의 수단
+    { scale: 0.12, quality: 0.4  },
   ];
 
   const jpgName = filenameIn.replace(/\.(png|jpe?g|webp|gif)$/i, '.jpg');
@@ -78,16 +82,36 @@ export async function persistImageToFtp(rawUrlOrBlob: string | Blob | undefined,
   let blob: Blob = rawUrlOrBlob;
   let filename = filenameIn;
 
+  const beforeSize = blob.size;
   // 4MB 이상은 JPEG 재인코딩 + 점진 축소로 한도 안에 들어오게 만듦
   ({ blob, filename } = await shrinkToBudget(blob, filename));
+  if (typeof console !== 'undefined') {
+    const mbBefore = (beforeSize / 1024 / 1024).toFixed(2);
+    const mbAfter = (blob.size / 1024 / 1024).toFixed(2);
+    console.log(`[image-upload] ${filenameIn}: ${mbBefore}MB → ${mbAfter}MB (${filename})`);
+  }
+
+  // Vercel 의 플랫폼 에러(413/504 등) 는 JSON 이 아닌 plain text 로 떨어져서
+  // res.json() 이 "Unexpected end of JSON input" 으로 폭발한다. 안전 파싱 + 가독성 좋은 에러 메시지.
+  const safeJson = async (res: Response, label: string): Promise<{ success?: boolean; imageUrl?: string; message?: string }> => {
+    const text = await res.text();
+    if (!text) {
+      throw new Error(`${label} 실패: ${res.status} — 응답 본문 비어있음. dev 서버 터미널 로그 확인 필요 (라우트 핸들러가 catch 전에 죽었을 가능성).`);
+    }
+    try {
+      return JSON.parse(text);
+    } catch {
+      throw new Error(`${label} 실패: ${res.status} — ${text.slice(0, 200)}`);
+    }
+  };
 
   if (blob.size < MULTIPART_LIMIT_BYTES) {
     // multipart/form-data — base64 와 달리 33% 부풀기 없음
     const form = new FormData();
     form.append('file', new File([blob], filename, { type: blob.type || 'image/jpeg' }));
     const res = await fetch('/api/ftp', { method: 'POST', body: form });
-    const json = await res.json();
-    if (!json.success) throw new Error(json.message || 'FTP 실패');
+    const json = await safeJson(res, 'FTP 업로드');
+    if (!json.success) throw new Error(json.message || `FTP 실패 (${res.status})`);
     return json.imageUrl as string;
   }
 
@@ -103,7 +127,7 @@ export async function persistImageToFtp(rawUrlOrBlob: string | Blob | undefined,
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ blobUrl, filename }),
   });
-  const json = await res.json();
-  if (!json.success) throw new Error(json.message || 'FTP 실패');
+  const json = await safeJson(res, 'FTP 업로드 (Blob 경유)');
+  if (!json.success) throw new Error(json.message || `FTP 실패 (${res.status})`);
   return json.imageUrl as string;
 }

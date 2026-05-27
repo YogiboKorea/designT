@@ -64,8 +64,12 @@ interface RegionItem {
 interface Block {
   id?: string;
   _id?: string;
-  type: 'image' | 'video' | 'text' | 'product_group';
+  type: 'image' | 'video' | 'text' | 'product_group' | 'event_notice';
   src?: string;
+  // event_notice
+  noticeTitle?: string;
+  noticeImage?: string;
+  noticeText?: string;
   regions?: RegionItem[];
   youtubeId?: string;
   autoplay?: boolean;
@@ -82,6 +86,7 @@ interface Block {
   directProducts?: ProductLite[];
   gridSize?: number;
   tabGridSizes?: Record<number, number>;
+  tabsPerRow?: number;
   activeColor?: string;
 }
 
@@ -403,6 +408,38 @@ export default function EventDetailPage() {
                     </div>
                   );
                 }
+                case 'event_notice': {
+                  const title = block.noticeTitle || '이벤트 유의사항';
+                  const isOpen = !!previewActiveTabs[`__notice_${blockId || ''}`];
+                  if (!block.noticeImage && !block.noticeText) return null;
+                  return (
+                    <div key={blockId} style={{ maxWidth: 800, margin: '24px auto', fontFamily: 'var(--font-sans)' }}>
+                      <button
+                        type="button"
+                        onClick={() => setPreviewActiveTabs((prev) => ({ ...prev, [`__notice_${blockId || ''}`]: isOpen ? 0 : 1 }))}
+                        style={{
+                          width: '100%', padding: '16px 20px', background: '#f5f5f5',
+                          border: '1px solid #e0e0e0', borderRadius: 6,
+                          fontSize: 15, fontWeight: 600, color: '#333', cursor: 'pointer',
+                          display: 'flex', justifyContent: 'space-between', alignItems: 'center', textAlign: 'left',
+                        }}
+                      >
+                        <span>{title}</span>
+                        <span style={{ transition: 'transform 0.3s ease', fontSize: 12, transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>▾</span>
+                      </button>
+                      <div style={{ overflow: 'hidden', maxHeight: isOpen ? 4000 : 0, transition: 'max-height 0.4s ease' }}>
+                        <div style={{ padding: '16px 20px', background: '#fafafa', border: '1px solid #e0e0e0', borderTop: 'none', borderRadius: '0 0 6px 6px' }}>
+                          {block.noticeImage && (
+                            <img src={block.noticeImage} alt={title} style={{ maxWidth: '100%', display: 'block', borderRadius: 4, marginBottom: block.noticeText ? 14 : 0 }} />
+                          )}
+                          {block.noticeText && (
+                            <div style={{ fontSize: 14, color: '#444', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{block.noticeText}</div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
                 case 'product_group': {
                   const activeTabIndex = previewActiveTabs[blockId || ''] || 0;
                   let productsToDisplay: ProductLite[] = [];
@@ -426,7 +463,13 @@ export default function EventDetailPage() {
                     <div key={blockId} style={{ padding: '16px 0', fontFamily: "'Noto Sans KR', sans-serif" }}>
                       <Alert message={<strong>상품 블록</strong>} type="info" showIcon />
                       {block.layoutType === 'tabs' && block.tabs && (
-                        <div style={{ display: 'flex', gap: 8, marginTop: 16, justifyContent: 'center' }}>
+                        <div
+                          style={
+                            block.tabsPerRow && block.tabsPerRow >= 2
+                              ? { display: 'grid', gridTemplateColumns: `repeat(${block.tabsPerRow}, 1fr)`, gap: 8, marginTop: 16 }
+                              : { display: 'flex', gap: 8, marginTop: 16, justifyContent: 'center' }
+                          }
+                        >
                           {(block.tabs || []).map((t, i) => (
                             <Button
                               key={i}

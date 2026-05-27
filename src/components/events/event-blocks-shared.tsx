@@ -365,12 +365,17 @@ export interface RegionItem {
 export interface EventBlock {
   id: string;
   _id?: string;
-  type: 'image' | 'video' | 'text' | 'product_group';
+  type: 'image' | 'video' | 'text' | 'product_group' | 'event_notice';
   // image
   src?: string;
   file?: File;
   hash?: string;
   regions?: RegionItem[];
+  // event_notice — 클릭 시 슬라이드 다운으로 펼쳐지는 유의사항 토글
+  noticeImage?: string;     // 영구 cafe24 FTP URL
+  noticeImageFile?: File;   // 저장 직전까지 임시
+  noticeText?: string;      // 본문 (여러 줄)
+  noticeTitle?: string;     // 토글 버튼에 표시될 제목 (기본: "이벤트 유의사항")
   // video
   youtubeId?: string;
   ratio?: { w?: number; h?: number };
@@ -396,6 +401,8 @@ export interface EventBlock {
   root?: string;
   sub?: string;
   tabs?: Array<{ title: string; root: string | null; sub: string | null }>;
+  /** 탭 헤더 한 줄에 몇 개씩 배치할지. undefined/null/0 이면 자동(전체 한 줄). 2면 2개씩 줄바꿈, 3이면 3개씩. */
+  tabsPerRow?: number;
   activeColor?: string;
   directProducts?: ProductLite[];
   tabDirectProducts?: Record<number, ProductLite[]>;

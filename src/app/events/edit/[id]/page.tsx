@@ -474,10 +474,69 @@ export default function EventEditPage() {
     setTextModalVisible(false);
   };
 
-  // 이미지 블록을 cafe24 FTP 영구 URL 로 교체.
+  // 이벤트 유의사항 블록 — 토글 버튼 + 이미지 + 텍스트 (라이브에서 슬라이드 다운).
+  const [noticeModalVisible, setNoticeModalVisible] = useState(false);
+  const [noticeForm] = Form.useForm();
+  const [noticeImagePreview, setNoticeImagePreview] = useState<string>('');
+  const [noticeImageFile, setNoticeImageFile] = useState<File | undefined>(undefined);
+  const openNoticeModal = (blockToEdit: EventBlock | null = null) => {
+    setSelectedId(blockToEdit?.id || null);
+    if (blockToEdit && blockToEdit.type === 'event_notice') {
+      noticeForm.setFieldsValue({
+        noticeTitle: blockToEdit.noticeTitle || '이벤트 유의사항',
+        noticeText: blockToEdit.noticeText || '',
+      });
+      setNoticeImagePreview(blockToEdit.noticeImage || '');
+      setNoticeImageFile(blockToEdit.noticeImageFile);
+    } else {
+      noticeForm.setFieldsValue({ noticeTitle: '이벤트 유의사항', noticeText: '' });
+      setNoticeImagePreview('');
+      setNoticeImageFile(undefined);
+    }
+    setNoticeModalVisible(true);
+  };
+  const submitNotice = () => {
+    const { noticeTitle, noticeText } = noticeForm.getFieldsValue();
+    if (!noticeImagePreview && !noticeText?.trim()) {
+      msgApi.warning('이미지나 본문 텍스트 중 하나는 입력하세요.');
+      return;
+    }
+    const sel = blocks.find((b) => b.id === selectedId);
+    const patch: Partial<EventBlock> = {
+      noticeTitle: (noticeTitle || '이벤트 유의사항').trim(),
+      noticeText: (noticeText || '').trim(),
+      noticeImage: noticeImagePreview || undefined,
+      noticeImageFile: noticeImageFile,
+    };
+    if (sel?.type === 'event_notice') {
+      setBlocks((prev) => prev.map((b) => (b.id === sel.id ? { ...b, ...patch } : b)));
+    } else {
+      const newId = Date.now().toString() + Math.random();
+      setBlocks((prev) => [...prev, { id: newId, type: 'event_notice', ...patch }]);
+      setSelectedId(newId);
+    }
+    setNoticeModalVisible(false);
+  };
+
+  // 이미지 블록 / 유의사항 블록을 cafe24 FTP 영구 URL 로 교체.
   // persistImageToFtp 가 4MB 이상은 JPEG 압축 + 점진 축소로 한도 안에 들어오게 만들고
   // multipart/form-data 로 전송 → 대부분 Vercel Blob 의존성 없이 통과.
   const uploadBlockImage = async (b: EventBlock): Promise<EventBlock> => {
+    if (b.type === 'event_notice') {
+      if (!b.noticeImage || /^https?:\/\//.test(b.noticeImage)) return b;
+      let fileBlob: Blob;
+      if (b.noticeImageFile) {
+        fileBlob = b.noticeImageFile;
+      } else {
+        const r = await fetch(b.noticeImage);
+        fileBlob = await r.blob();
+      }
+      const mimeExt = fileBlob.type.split('/')[1];
+      const ext = (b.noticeImageFile?.name?.split('.').pop() || mimeExt || 'png').toLowerCase();
+      const filename = `notice_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const finalUrl = await persistImageToFtp(fileBlob, filename);
+      return { ...b, noticeImage: finalUrl, noticeImageFile: undefined };
+    }
     if (b.type !== 'image' || !b.src) return b;
     if (/^https?:\/\//.test(b.src) && !b.file) return b;
 
@@ -612,6 +671,11 @@ export default function EventEditPage() {
                                   <ShoppingCartOutlined style={{ fontSize: 24 }} /><span>상품 블록</span>
                                 </div>
                               )}
+                              {b.type === 'event_notice' && (
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#666', fontSize: 11, gap: 4 }}>
+                                  <TagOutlined style={{ fontSize: 24 }} /><span>유의사항</span>
+                                </div>
+                              )}
                               <DeleteOutlined
                                 onClick={(e) => { e.stopPropagation(); deleteBlock(b.id); }}
                                 style={{ position: 'absolute', top: 4, right: 4, color: '#ff4d4f', background: '#fff', borderRadius: 4, padding: 2, fontSize: 12 }}
@@ -643,6 +707,7 @@ export default function EventEditPage() {
                 <Button icon={<BlockOutlined />} onClick={() => openProductBlockModal()}>상품 추가</Button>
                 <Button icon={<VideoCameraAddOutlined />} onClick={() => openVideoModal()}>YouTube 추가</Button>
                 <Button icon={<FontSizeOutlined />} onClick={() => openTextModal()}>텍스트 추가</Button>
+                <Button icon={<TagOutlined />} onClick={() => openNoticeModal()}>이벤트 유의사항 추가</Button>
               </Space>
 
               <Upload.Dragger {...uploadProps} style={{ marginTop: 16 }}>
@@ -708,6 +773,35 @@ export default function EventEditPage() {
                       </div>
                     );
                   }
+                  if (b.type === 'event_notice') {
+                    return (
+                      <div key={b.id} style={{ position: 'relative', border: '1px dashed #d9d9d9', borderRadius: 8, padding: 16, margin: '8px 0', background: '#fafafa' }}>
+                        <Alert
+                          message={
+                            <div>
+                              <strong>📋 이벤트 유의사항 토글</strong>
+                              <Button size="small" type="link" onClick={() => openNoticeModal(b)} style={{ float: 'right' }}>편집</Button>
+                            </div>
+                          }
+                          type="warning"
+                          showIcon
+                        />
+                        <div style={{ marginTop: 12, padding: '12px 16px', background: '#fff', border: '1px solid #f0f0f0', borderRadius: 6, fontWeight: 600 }}>
+                          {b.noticeTitle || '이벤트 유의사항'} ▾
+                        </div>
+                        {(b.noticeImage || b.noticeText) && (
+                          <div style={{ marginTop: 8, padding: 12, background: '#fff', border: '1px solid #f0f0f0', borderRadius: 6 }}>
+                            {b.noticeImage && (
+                              <img src={b.noticeImage} alt="유의사항" style={{ maxWidth: '100%', borderRadius: 4, display: 'block', marginBottom: b.noticeText ? 12 : 0 }} />
+                            )}
+                            {b.noticeText && (
+                              <div style={{ fontSize: 13, color: '#444', whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{b.noticeText}</div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  }
                   if (b.type === 'product_group') {
                     const activeTabIndex = previewActiveTabs[b.id] || 0;
                     let productsToDisplay: ProductLite[] = [];
@@ -740,7 +834,13 @@ export default function EventEditPage() {
                           type="info" showIcon
                         />
                         {b.layoutType === 'tabs' && (
-                          <div style={{ display: 'flex', gap: 8, marginTop: 16, justifyContent: 'center' }}>
+                          <div
+                            style={
+                              b.tabsPerRow && b.tabsPerRow >= 2
+                                ? { display: 'grid', gridTemplateColumns: `repeat(${b.tabsPerRow}, 1fr)`, gap: 8, marginTop: 16 }
+                                : { display: 'flex', gap: 8, marginTop: 16, justifyContent: 'center' }
+                            }
+                          >
                             {(b.tabs || []).map((t, i) => (
                               <Button
                                 key={i}
@@ -883,6 +983,59 @@ export default function EventEditPage() {
               <InputNumber min={0} step={1} style={{ width: 120 }} />
             </Form.Item>
           </Space>
+        </Form>
+      </Modal>
+
+      <Modal
+        open={noticeModalVisible}
+        title={selectedId && blocks.find((b) => b.id === selectedId)?.type === 'event_notice' ? '이벤트 유의사항 편집' : '이벤트 유의사항 추가'}
+        onCancel={() => setNoticeModalVisible(false)}
+        onOk={submitNotice}
+        width={600}
+      >
+        <Form form={noticeForm} layout="vertical" initialValues={{ noticeTitle: '이벤트 유의사항' }}>
+          <Form.Item name="noticeTitle" label="토글 버튼 제목" rules={[{ required: true, message: '버튼 제목을 입력하세요.' }]}>
+            <Input placeholder="예: 이벤트 유의사항" />
+          </Form.Item>
+          <Form.Item label="유의사항 이미지 (선택)">
+            <Upload
+              accept="image/*"
+              showUploadList={false}
+              beforeUpload={(file) => {
+                if (file.size / 1024 / 1024 > 10) {
+                  msgApi.error('이미지는 10MB 이하여야 합니다.');
+                  return Upload.LIST_IGNORE;
+                }
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                  setNoticeImagePreview((e.target?.result as string) || '');
+                  setNoticeImageFile(file);
+                };
+                reader.readAsDataURL(file);
+                return false;
+              }}
+            >
+              <Button icon={<UploadOutlined />}>{noticeImagePreview ? '이미지 변경' : '이미지 업로드'}</Button>
+            </Upload>
+            {noticeImagePreview && (
+              <div style={{ marginTop: 10, position: 'relative', display: 'inline-block' }}>
+                <img src={noticeImagePreview} alt="유의사항 미리보기" style={{ maxWidth: '100%', maxHeight: 200, borderRadius: 4, border: '1px solid #f0f0f0' }} />
+                <Button
+                  size="small"
+                  danger
+                  onClick={() => { setNoticeImagePreview(''); setNoticeImageFile(undefined); }}
+                  style={{ position: 'absolute', top: 4, right: 4 }}
+                >제거</Button>
+              </div>
+            )}
+          </Form.Item>
+          <Form.Item name="noticeText" label="본문 텍스트 (선택)">
+            <Input.TextArea rows={8} placeholder="유의사항 본문을 입력하세요. 엔터로 줄바꿈." />
+          </Form.Item>
+          <div style={{ fontSize: 12, color: '#888', lineHeight: 1.5 }}>
+            라이브 페이지에서 토글 버튼 클릭 시 슬라이드 다운으로 이미지 + 본문이 펼쳐집니다.
+            이미지나 본문 중 하나만 입력해도 됩니다.
+          </div>
         </Form>
       </Modal>
     </AppShell>

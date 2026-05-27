@@ -1,7 +1,8 @@
 'use client';
 import React, { useState, useEffect, useCallback } from 'react';
 import { Modal, Form, Button, Segmented, Space, Input, Select, ColorPicker } from 'antd';
-import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
+import { DeleteOutlined, PlusOutlined, MenuOutlined } from '@ant-design/icons';
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import type { MessageInstance } from 'antd/es/message/interface';
 import MorePrd, { ProductItem } from './MorePrd';
 import type { CategoryItem, EventBlock, ProductLite } from './event-blocks-shared';
@@ -40,6 +41,8 @@ export default function ProductBlockModal({
     { title: '', root: null, sub: null },
   ]);
   const [activeColor, setActiveColor] = useState('#fe6326');
+  // 탭 헤더 한 줄당 몇 개 — 0/null 이면 자동(전체 한 줄). 2/3/4 면 줄바꿈.
+  const [tabsPerRow, setTabsPerRow] = useState<number | null>(null);
   const [directProducts, setDirectProducts] = useState<ProductLite[]>([]);
   const [tabDirectProducts, setTabDirectProducts] = useState<Record<number, ProductLite[]>>({});
   // 탭별 그리드 사이즈 — 없으면 상단 gridSize 를 fallback 으로 사용.
@@ -55,6 +58,7 @@ export default function ProductBlockModal({
       setGridSize(initialData.gridSize || 2);
       setTabGridSizes(initialData.tabGridSizes || {});
       setLayoutType((initialData.layoutType as 'single' | 'tabs') || 'single');
+      setTabsPerRow(initialData.tabsPerRow ?? null);
       if (initialData.registerMode === 'category') {
         if (initialData.layoutType === 'single') {
           setSingleRoot(initialData.root ? String(initialData.root) : null);
@@ -93,6 +97,7 @@ export default function ProductBlockModal({
       setActiveColor('#fe6326');
       setDirectProducts([]);
       setTabDirectProducts({});
+      setTabsPerRow(null);
     }
   }, [visible, initialData, form]);
 
@@ -158,6 +163,37 @@ export default function ProductBlockModal({
     };
     setTabDirectProducts(shiftIndexMap);
     setTabGridSizes(shiftIndexMap);
+  }, []);
+
+  // 탭 순서 변경 — tabs 배열 + tabDirectProducts/tabGridSizes 의 index 도 함께 이동
+  const reorderIndexMap = <T,>(
+    prev: Record<number, T>,
+    from: number,
+    to: number,
+  ): Record<number, T> => {
+    if (from === to) return prev;
+    const next: Record<number, T> = {};
+    const keys = Object.keys(prev).map(Number).filter((k) => !isNaN(k));
+    keys.forEach((k) => {
+      let newK = k;
+      if (k === from) newK = to;
+      else if (from < to && k > from && k <= to) newK = k - 1;
+      else if (from > to && k >= to && k < from) newK = k + 1;
+      next[newK] = prev[k];
+    });
+    return next;
+  };
+
+  const moveTab = useCallback((from: number, to: number) => {
+    if (from === to) return;
+    setTabs((ts) => {
+      const arr = [...ts];
+      const [moved] = arr.splice(from, 1);
+      arr.splice(to, 0, moved);
+      return arr;
+    });
+    setTabDirectProducts((prev) => reorderIndexMap(prev, from, to));
+    setTabGridSizes((prev) => reorderIndexMap(prev, from, to));
   }, []);
 
   const openMorePrd = useCallback(
@@ -243,9 +279,13 @@ export default function ProductBlockModal({
     if (layoutType === 'tabs' && Object.keys(tabGridSizes).length > 0) {
       blockData.tabGridSizes = tabGridSizes;
     }
+    // 탭 줄당 개수 (선택사항)
+    if (layoutType === 'tabs' && tabsPerRow && tabsPerRow >= 2) {
+      blockData.tabsPerRow = tabsPerRow;
+    }
     onOk(blockData);
     onCancel();
-  }, [registerMode, gridSize, layoutType, singleRoot, singleSub, tabs, activeColor, directProducts, tabDirectProducts, tabGridSizes, onOk, onCancel, msgApi, initialData]);
+  }, [registerMode, gridSize, layoutType, singleRoot, singleSub, tabs, activeColor, directProducts, tabDirectProducts, tabGridSizes, tabsPerRow, onOk, onCancel, msgApi, initialData]);
 
   return (
     <Modal
@@ -311,49 +351,88 @@ export default function ProductBlockModal({
 
         {registerMode === 'category' && layoutType === 'tabs' && (
           <>
-            {tabs.map((t, i) => (
-              <div key={i}>
-                <Space size="middle" style={{ marginTop: 16, alignItems: 'center' }}>
-                  <Input placeholder={`탭 ${i + 1} 제목`} style={{ width: 120 }} value={t.title} onChange={(e) => updateTab(i, 'title', e.target.value)} />
-                  <Select placeholder="대분류" style={{ width: 140 }} value={t.root} onChange={(v) => updateTab(i, 'root', v)}>
-                    {roots.map((r) => (
-                      <Option key={r.category_no} value={String(r.category_no)}>
-                        {r.category_name}
-                      </Option>
+            <div style={{ marginTop: 16, marginBottom: 4, fontSize: 13, color: '#555' }}>
+              ☰ 탭 좌측 핸들을 드래그해서 순서 변경 가능
+            </div>
+            <DragDropContext
+              onDragEnd={(result) => {
+                if (!result.destination) return;
+                moveTab(result.source.index, result.destination.index);
+              }}
+            >
+              <Droppable droppableId="cat-tabs">
+                {(prov) => (
+                  <div ref={prov.innerRef} {...prov.droppableProps}>
+                    {tabs.map((t, i) => (
+                      <Draggable key={`cat-tab-${i}`} draggableId={`cat-tab-${i}`} index={i}>
+                        {(dProv) => (
+                          <div
+                            ref={dProv.innerRef}
+                            {...dProv.draggableProps}
+                            style={{ ...dProv.draggableProps.style, padding: '4px 0' }}
+                          >
+                            <Space size="middle" style={{ alignItems: 'center', width: '100%' }}>
+                              <span {...dProv.dragHandleProps} style={{ cursor: 'grab', color: '#888', padding: '4px' }}>
+                                <MenuOutlined />
+                              </span>
+                              <Input placeholder={`탭 ${i + 1} 제목`} style={{ width: 110 }} value={t.title} onChange={(e) => updateTab(i, 'title', e.target.value)} />
+                              <Select placeholder="대분류" style={{ width: 130 }} value={t.root} onChange={(v) => updateTab(i, 'root', v)}>
+                                {roots.map((r) => (
+                                  <Option key={r.category_no} value={String(r.category_no)}>
+                                    {r.category_name}
+                                  </Option>
+                                ))}
+                              </Select>
+                              <Select placeholder="소분류" style={{ width: 130 }} value={t.sub} onChange={(v) => updateTab(i, 'sub', v)}>
+                                {allCats
+                                  .filter((c) => c.category_depth === 2 && String(c.parent_category_no) === t.root)
+                                  .map((s) => (
+                                    <Option key={s.category_no} value={String(s.category_no)}>
+                                      {s.category_name}
+                                    </Option>
+                                  ))}
+                              </Select>
+                              <Select
+                                value={tabGridSizes[i] ?? gridSize}
+                                onChange={(v) => setTabGridSizes((prev) => ({ ...prev, [i]: v }))}
+                                style={{ width: 88 }}
+                                options={[
+                                  { label: '1×1', value: 1 },
+                                  { label: '2×2', value: 2 },
+                                  { label: '3×3', value: 3 },
+                                  { label: '4×4', value: 4 },
+                                ]}
+                              />
+                              {tabs.length > 2 && (
+                                <DeleteOutlined onClick={() => removeTab(i)} style={{ cursor: 'pointer', color: '#ff4d4f' }} />
+                              )}
+                            </Space>
+                          </div>
+                        )}
+                      </Draggable>
                     ))}
-                  </Select>
-                  <Select placeholder="소분류" style={{ width: 140 }} value={t.sub} onChange={(v) => updateTab(i, 'sub', v)}>
-                    {allCats
-                      .filter((c) => c.category_depth === 2 && String(c.parent_category_no) === t.root)
-                      .map((s) => (
-                        <Option key={s.category_no} value={String(s.category_no)}>
-                          {s.category_name}
-                        </Option>
-                      ))}
-                  </Select>
-                  <Select
-                    value={tabGridSizes[i] ?? gridSize}
-                    onChange={(v) => setTabGridSizes((prev) => ({ ...prev, [i]: v }))}
-                    style={{ width: 88 }}
-                    options={[
-                      { label: '1×1', value: 1 },
-                      { label: '2×2', value: 2 },
-                      { label: '3×3', value: 3 },
-                      { label: '4×4', value: 4 },
-                    ]}
-                  />
-                  {tabs.length > 2 && (
-                    <DeleteOutlined onClick={() => removeTab(i)} style={{ cursor: 'pointer', color: '#ff4d4f' }} />
-                  )}
-                </Space>
-              </div>
-            ))}
+                    {prov.placeholder}
+                  </div>
+                )}
+              </Droppable>
+            </DragDropContext>
             <Button type="dashed" block style={{ marginTop: 16 }} onClick={addTab} disabled={tabs.length >= 11}>
               <PlusOutlined /> 탭 추가
             </Button>
-            <Space style={{ marginTop: 12, alignItems: 'center' }}>
+            <Space style={{ marginTop: 16, alignItems: 'center' }} wrap>
               <span>활성 탭 색:</span>
               <ColorPicker value={activeColor} onChangeComplete={(color) => setActiveColor(color.toHexString())} />
+              <span style={{ marginLeft: 12 }}>탭 줄당 개수:</span>
+              <Segmented
+                options={[
+                  { label: '자동(1줄)', value: 0 },
+                  { label: '2개씩', value: 2 },
+                  { label: '3개씩', value: 3 },
+                  { label: '4개씩', value: 4 },
+                ]}
+                value={tabsPerRow ?? 0}
+                onChange={(v) => setTabsPerRow(Number(v) || null)}
+              />
             </Space>
           </>
         )}
@@ -366,36 +445,75 @@ export default function ProductBlockModal({
 
         {registerMode === 'direct' && layoutType === 'tabs' && (
           <>
-            {tabs.map((t, i) => (
-              <div key={i}>
-                <Space size="middle" style={{ marginTop: 16, alignItems: 'center' }}>
-                  <Input placeholder={`탭 ${i + 1} 제목`} style={{ width: 120 }} value={t.title} onChange={(e) => updateTab(i, 'title', e.target.value)} />
-                  <Select
-                    value={tabGridSizes[i] ?? gridSize}
-                    onChange={(v) => setTabGridSizes((prev) => ({ ...prev, [i]: v }))}
-                    style={{ width: 88 }}
-                    options={[
-                      { label: '1×1', value: 1 },
-                      { label: '2×2', value: 2 },
-                      { label: '3×3', value: 3 },
-                      { label: '4×4', value: 4 },
-                    ]}
-                  />
-                  <Button type={(tabDirectProducts[i] || []).length > 0 ? 'primary' : 'default'} onClick={() => openMorePrd('tab', i)}>
-                    {(tabDirectProducts[i] || []).length ? `상품 ${(tabDirectProducts[i] || []).length}개 등록됨` : '상품 직접 등록'}
-                  </Button>
-                  {tabs.length > 2 && (
-                    <DeleteOutlined onClick={() => removeTab(i)} style={{ cursor: 'pointer', color: '#ff4d4f' }} />
-                  )}
-                </Space>
-              </div>
-            ))}
+            <div style={{ marginTop: 16, marginBottom: 4, fontSize: 13, color: '#555' }}>
+              ☰ 탭 좌측 핸들을 드래그해서 순서 변경 가능
+            </div>
+            <DragDropContext
+              onDragEnd={(result) => {
+                if (!result.destination) return;
+                moveTab(result.source.index, result.destination.index);
+              }}
+            >
+              <Droppable droppableId="dir-tabs">
+                {(prov) => (
+                  <div ref={prov.innerRef} {...prov.droppableProps}>
+                    {tabs.map((t, i) => (
+                      <Draggable key={`dir-tab-${i}`} draggableId={`dir-tab-${i}`} index={i}>
+                        {(dProv) => (
+                          <div
+                            ref={dProv.innerRef}
+                            {...dProv.draggableProps}
+                            style={{ ...dProv.draggableProps.style, padding: '4px 0' }}
+                          >
+                            <Space size="middle" style={{ alignItems: 'center', width: '100%' }}>
+                              <span {...dProv.dragHandleProps} style={{ cursor: 'grab', color: '#888', padding: '4px' }}>
+                                <MenuOutlined />
+                              </span>
+                              <Input placeholder={`탭 ${i + 1} 제목`} style={{ width: 120 }} value={t.title} onChange={(e) => updateTab(i, 'title', e.target.value)} />
+                              <Select
+                                value={tabGridSizes[i] ?? gridSize}
+                                onChange={(v) => setTabGridSizes((prev) => ({ ...prev, [i]: v }))}
+                                style={{ width: 88 }}
+                                options={[
+                                  { label: '1×1', value: 1 },
+                                  { label: '2×2', value: 2 },
+                                  { label: '3×3', value: 3 },
+                                  { label: '4×4', value: 4 },
+                                ]}
+                              />
+                              <Button type={(tabDirectProducts[i] || []).length > 0 ? 'primary' : 'default'} onClick={() => openMorePrd('tab', i)}>
+                                {(tabDirectProducts[i] || []).length ? `상품 ${(tabDirectProducts[i] || []).length}개 등록됨` : '상품 직접 등록'}
+                              </Button>
+                              {tabs.length > 2 && (
+                                <DeleteOutlined onClick={() => removeTab(i)} style={{ cursor: 'pointer', color: '#ff4d4f' }} />
+                              )}
+                            </Space>
+                          </div>
+                        )}
+                      </Draggable>
+                    ))}
+                    {prov.placeholder}
+                  </div>
+                )}
+              </Droppable>
+            </DragDropContext>
             <Button type="dashed" block style={{ marginTop: 16 }} onClick={addTab} disabled={tabs.length >= 11}>
               <PlusOutlined /> 탭 추가
             </Button>
-            <Space style={{ marginTop: 12, alignItems: 'center' }}>
+            <Space style={{ marginTop: 16, alignItems: 'center' }} wrap>
               <span>활성 탭 색:</span>
               <ColorPicker value={activeColor} onChangeComplete={(color) => setActiveColor(color.toHexString())} />
+              <span style={{ marginLeft: 12 }}>탭 줄당 개수:</span>
+              <Segmented
+                options={[
+                  { label: '자동(1줄)', value: 0 },
+                  { label: '2개씩', value: 2 },
+                  { label: '3개씩', value: 3 },
+                  { label: '4개씩', value: 4 },
+                ]}
+                value={tabsPerRow ?? 0}
+                onChange={(v) => setTabsPerRow(Number(v) || null)}
+              />
             </Space>
           </>
         )}

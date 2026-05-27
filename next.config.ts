@@ -8,6 +8,15 @@ const nextConfig: NextConfig = {
   transpilePackages: [
     '@imgly/background-removal',
   ],
+  /**
+   * Node 네이티브 모듈은 webpack 번들 제외 — Node 의 require 그대로 사용.
+   * basic-ftp 는 net/tls 소켓 사용하므로 번들되면 dev 모드에서 모듈 로드 실패 발생.
+   */
+  serverExternalPackages: [
+    'basic-ftp',
+    'mongoose',
+    'mongodb',
+  ],
 };
 
 export default nextConfig;
