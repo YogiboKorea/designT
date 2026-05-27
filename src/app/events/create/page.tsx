@@ -427,21 +427,38 @@ export default function EventCreatePage() {
   const openNoticeModal = (blockToEdit: EventBlock | null = null) => {
     setSelectedId(blockToEdit?.id || null);
     if (blockToEdit && blockToEdit.type === 'event_notice') {
+      const ns = blockToEdit.noticeStyle || {};
       noticeForm.setFieldsValue({
         noticeTitle: blockToEdit.noticeTitle || '이벤트 유의사항',
         noticeText: blockToEdit.noticeText || '',
+        background: ns.background || '',
+        color: ns.color || '#444444',
+        fontSize: ns.fontSize ?? 14,
+        lineHeight: ns.lineHeight ?? 1.7,
+        letterSpacing: ns.letterSpacing ?? 0,
+        padding: ns.padding ?? 16,
       });
       setNoticeImagePreview(blockToEdit.noticeImage || '');
       setNoticeImageFile(blockToEdit.noticeImageFile);
     } else {
-      noticeForm.setFieldsValue({ noticeTitle: '이벤트 유의사항', noticeText: '' });
+      noticeForm.setFieldsValue({
+        noticeTitle: '이벤트 유의사항',
+        noticeText: '',
+        background: '',
+        color: '#444444',
+        fontSize: 14,
+        lineHeight: 1.7,
+        letterSpacing: 0,
+        padding: 16,
+      });
       setNoticeImagePreview('');
       setNoticeImageFile(undefined);
     }
     setNoticeModalVisible(true);
   };
   const submitNotice = () => {
-    const { noticeTitle, noticeText } = noticeForm.getFieldsValue();
+    const vals = noticeForm.getFieldsValue();
+    const { noticeTitle, noticeText, background, color, fontSize, lineHeight, letterSpacing, padding } = vals;
     if (!noticeImagePreview && !noticeText?.trim()) {
       msgApi.warning('이미지나 본문 텍스트 중 하나는 입력하세요.');
       return;
@@ -452,6 +469,14 @@ export default function EventCreatePage() {
       noticeText: (noticeText || '').trim(),
       noticeImage: noticeImagePreview || undefined,
       noticeImageFile: noticeImageFile,
+      noticeStyle: {
+        background: background || undefined,
+        color: color || undefined,
+        fontSize: typeof fontSize === 'number' ? fontSize : undefined,
+        lineHeight: typeof lineHeight === 'number' ? lineHeight : undefined,
+        letterSpacing: typeof letterSpacing === 'number' ? letterSpacing : undefined,
+        padding: typeof padding === 'number' ? padding : undefined,
+      },
     };
     if (sel?.type === 'event_notice') {
       setBlocks((prev) => prev.map((b) => (b.id === sel.id ? { ...b, ...patch } : b)));
@@ -844,6 +869,7 @@ export default function EventCreatePage() {
                     );
                   }
                   if (b.type === 'event_notice') {
+                    const ns = b.noticeStyle || {};
                     return (
                       <div key={b.id} style={{ position: 'relative', border: '1px dashed #d9d9d9', borderRadius: 8, padding: 16, margin: '8px 0', background: '#fafafa' }}>
                         <Alert
@@ -856,17 +882,23 @@ export default function EventCreatePage() {
                           type="warning"
                           showIcon
                         />
-                        <div style={{ marginTop: 12, padding: '12px 16px', background: '#fff', border: '1px solid #f0f0f0', borderRadius: 6, fontWeight: 600 }}>
-                          {b.noticeTitle || '이벤트 유의사항'} ▾
-                        </div>
-                        {(b.noticeImage || b.noticeText) && (
-                          <div style={{ marginTop: 8, padding: 12, background: '#fff', border: '1px solid #f0f0f0', borderRadius: 6 }}>
-                            {b.noticeImage && (
-                              <img src={b.noticeImage} alt="유의사항" style={{ maxWidth: '100%', borderRadius: 4, display: 'block', marginBottom: b.noticeText ? 12 : 0 }} />
-                            )}
-                            {b.noticeText && (
-                              <div style={{ fontSize: 13, color: '#444', whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{b.noticeText}</div>
-                            )}
+                        {b.noticeImage && (
+                          <img src={b.noticeImage} alt="유의사항" style={{ maxWidth: '100%', display: 'block', marginTop: 12 }} />
+                        )}
+                        {b.noticeText && (
+                          <div
+                            style={{
+                              padding: typeof ns.padding === 'number' ? ns.padding : 16,
+                              background: ns.background || 'transparent',
+                              fontSize: ns.fontSize ?? 14,
+                              color: ns.color || '#444',
+                              lineHeight: ns.lineHeight ?? 1.7,
+                              letterSpacing: typeof ns.letterSpacing === 'number' ? `${ns.letterSpacing}px` : undefined,
+                              whiteSpace: 'pre-wrap',
+                              marginTop: b.noticeImage ? 0 : 12,
+                            }}
+                          >
+                            {b.noticeText}
                           </div>
                         )}
                       </div>
@@ -1126,6 +1158,29 @@ export default function EventCreatePage() {
           <Form.Item name="noticeText" label="본문 텍스트 (선택)">
             <Input.TextArea rows={8} placeholder="유의사항 본문을 입력하세요. 엔터로 줄바꿈." />
           </Form.Item>
+
+          <Divider style={{ margin: '12px 0' }}>본문 스타일</Divider>
+          <Space wrap>
+            <Form.Item name="background" label="배경색" style={{ marginBottom: 8 }}>
+              <Input type="color" style={{ width: 60, padding: 0, border: 'none', background: 'transparent' }} />
+            </Form.Item>
+            <Form.Item name="color" label="글자색" style={{ marginBottom: 8 }}>
+              <Input type="color" style={{ width: 60, padding: 0, border: 'none', background: 'transparent' }} />
+            </Form.Item>
+            <Form.Item name="fontSize" label="폰트 크기(px)" style={{ marginBottom: 8 }}>
+              <InputNumber min={10} max={32} step={1} style={{ width: 100 }} />
+            </Form.Item>
+            <Form.Item name="lineHeight" label="줄 간격" style={{ marginBottom: 8 }}>
+              <InputNumber min={1} max={3} step={0.1} style={{ width: 100 }} />
+            </Form.Item>
+            <Form.Item name="letterSpacing" label="자간(px)" style={{ marginBottom: 8 }}>
+              <InputNumber min={-2} max={5} step={0.1} style={{ width: 100 }} />
+            </Form.Item>
+            <Form.Item name="padding" label="패딩(px)" style={{ marginBottom: 8 }}>
+              <InputNumber min={0} max={64} step={2} style={{ width: 100 }} />
+            </Form.Item>
+          </Space>
+
           <div style={{ fontSize: 12, color: '#888', lineHeight: 1.5 }}>
             라이브 페이지에서 토글 버튼 클릭 시 슬라이드 다운으로 이미지 + 본문이 펼쳐집니다.
             이미지나 본문 중 하나만 입력해도 됩니다.

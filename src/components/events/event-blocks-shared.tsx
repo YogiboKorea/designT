@@ -376,6 +376,15 @@ export interface EventBlock {
   noticeImageFile?: File;   // 저장 직전까지 임시
   noticeText?: string;      // 본문 (여러 줄)
   noticeTitle?: string;     // 토글 버튼에 표시될 제목 (기본: "이벤트 유의사항")
+  /** 본문 영역(슬라이드 다운으로 보이는 텍스트) 의 시각 스타일. */
+  noticeStyle?: {
+    background?: string;     // 본문 배경색 (예: '#fafafa'). 없으면 투명.
+    color?: string;          // 글자색 (기본 '#444')
+    fontSize?: number;       // px (기본 14)
+    lineHeight?: number;     // 배수 (기본 1.7)
+    letterSpacing?: number;  // px (기본 0)
+    padding?: number;        // 사방 padding px (기본 16)
+  };
   // video
   youtubeId?: string;
   ratio?: { w?: number; h?: number };

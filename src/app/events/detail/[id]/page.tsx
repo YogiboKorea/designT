@@ -70,6 +70,14 @@ interface Block {
   noticeTitle?: string;
   noticeImage?: string;
   noticeText?: string;
+  noticeStyle?: {
+    background?: string;
+    color?: string;
+    fontSize?: number;
+    lineHeight?: number;
+    letterSpacing?: number;
+    padding?: number;
+  };
   regions?: RegionItem[];
   youtubeId?: string;
   autoplay?: boolean;
@@ -439,11 +447,26 @@ export default function EventDetailPage() {
                           <span style={{ transition: 'transform 0.3s ease', fontSize: 12, transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>▾</span>
                         </button>
                       )}
-                      {block.noticeText && (
-                        <div style={{ overflow: 'hidden', maxHeight: isOpen ? 4000 : 0, transition: 'max-height 0.4s ease' }}>
-                          <div style={{ padding: '16px 4px', fontSize: 14, color: '#444', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{block.noticeText}</div>
-                        </div>
-                      )}
+                      {block.noticeText && (() => {
+                        const ns = block.noticeStyle || {};
+                        return (
+                          <div style={{ overflow: 'hidden', maxHeight: isOpen ? 4000 : 0, transition: 'max-height 0.4s ease' }}>
+                            <div
+                              style={{
+                                padding: typeof ns.padding === 'number' ? ns.padding : 16,
+                                background: ns.background || 'transparent',
+                                fontSize: ns.fontSize ?? 14,
+                                color: ns.color || '#444',
+                                lineHeight: ns.lineHeight ?? 1.7,
+                                letterSpacing: typeof ns.letterSpacing === 'number' ? `${ns.letterSpacing}px` : undefined,
+                                whiteSpace: 'pre-wrap',
+                              }}
+                            >
+                              {block.noticeText}
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
                   );
                 }
