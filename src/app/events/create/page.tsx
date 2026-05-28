@@ -16,6 +16,7 @@ import { useMallId } from '@/lib/use-mall-id';
 import { persistImageToFtp } from '@/lib/image-upload';
 import AppShell from '@/components/AppShell';
 import ProductBlockModal from '@/components/events/ProductBlockModal';
+import PopupImageRegionEditor from '@/components/events/PopupImageRegionEditor';
 import {
   YouTubeEmbed, renderGrid, getYouTubeId,
   type EventBlock, type RegionItem, type CategoryItem, type CouponOption,
@@ -166,7 +167,10 @@ export default function EventCreatePage() {
 
   // 영역 추가/편집
   const [addingMode, setAddingMode] = useState(false);
-  const [addType, setAddType] = useState<'link' | 'coupon' | 'tab' | null>(null);
+  const [addType, setAddType] = useState<'link' | 'coupon' | 'tab' | 'popup' | null>(null);
+  // 팝업 영역 — 모달에서 편집 중인 이미지 목록 (1~10장, 각 링크 선택)
+  const [popupImages, setPopupImages] = useState<import('@/components/events/event-blocks-shared').PopupImage[]>([]);
+  const [popupShowClose, setPopupShowClose] = useState(true);
 
   // 탭 이동 region 의 대상 옵션 목록. 현재 이벤트의 모든 product_group(tabs 모드) 블록의 각 탭을 평탄화.
   // value = `${blockId}::${tabIndex}` 형식의 문자열 (Select 호환).
@@ -264,6 +268,17 @@ export default function EventCreatePage() {
       updated.tabTarget = { blockId, tabIndex };
       delete updated.href;
       delete updated.coupon;
+      delete updated.popup;
+    } else if (addType === 'popup') {
+      const imgs = popupImages.filter((p) => p.url);
+      if (imgs.length === 0) {
+        msgApi.error('팝업 이미지를 1장 이상 추가하세요.');
+        return;
+      }
+      updated.popup = { images: imgs, interval: 3000, showCloseButton: popupShowClose };
+      delete updated.href;
+      delete updated.coupon;
+      delete updated.tabTarget;
     } else {
       const coupon = (vals.coupon || []).join(',');
       if (!coupon) {
@@ -273,6 +288,7 @@ export default function EventCreatePage() {
       updated.coupon = coupon;
       delete updated.href;
       delete updated.tabTarget;
+      delete updated.popup;
     }
     setBlocks((prev) =>
       prev.map((b) => (b.id === selectedId && b.type === 'image' ? { ...b, regions: [...(b.regions || []), updated] } : b))
@@ -281,6 +297,7 @@ export default function EventCreatePage() {
     setPendingRegion(null);
     setAddingMode(false);
     setAddType(null);
+    setPopupImages([]);
     mapForm.resetFields();
   };
 
@@ -289,6 +306,7 @@ export default function EventCreatePage() {
     setEditModalVisible(true);
     if (r.coupon) editForm.setFieldsValue({ coupon: r.coupon.split(',') });
     else if (r.tabTarget) editForm.setFieldsValue({ tabTarget: `${r.tabTarget.blockId}::${r.tabTarget.tabIndex}` });
+    else if (r.popup) { setPopupImages(r.popup.images || []); setPopupShowClose(r.popup.showCloseButton !== false); }
     else editForm.setFieldsValue({ href: r.href });
   };
 
@@ -301,17 +319,21 @@ export default function EventCreatePage() {
           if (r.id !== editingRegion?.id) return r;
           if (r.coupon != null) {
             const coupon = (vals.coupon || []).join(',');
-            return { ...r, coupon, href: undefined, tabTarget: undefined };
+            return { ...r, coupon, href: undefined, tabTarget: undefined, popup: undefined };
           } else if (r.tabTarget) {
             const tabKey = (vals.tabTarget || '').trim();
             const [blockId, idxStr] = tabKey.split('::');
             const tabIndex = parseInt(idxStr, 10);
             if (!blockId || !isFinite(tabIndex)) return r;
-            return { ...r, tabTarget: { blockId, tabIndex }, href: undefined, coupon: undefined };
+            return { ...r, tabTarget: { blockId, tabIndex }, href: undefined, coupon: undefined, popup: undefined };
+          } else if (r.popup) {
+            const imgs = popupImages.filter((p) => p.url);
+            if (imgs.length === 0) return r;
+            return { ...r, popup: { images: imgs, interval: r.popup.interval ?? 3000, showCloseButton: popupShowClose }, href: undefined, coupon: undefined, tabTarget: undefined };
           } else {
             let href = (vals.href || '').trim();
             if (!/^https?:\/\//.test(href)) href = 'https://' + href;
-            return { ...r, href, coupon: undefined, tabTarget: undefined };
+            return { ...r, href, coupon: undefined, tabTarget: undefined, popup: undefined };
           }
         });
         return { ...b, regions };
@@ -319,6 +341,37 @@ export default function EventCreatePage() {
     );
     setEditModalVisible(false);
     setEditingRegion(null);
+    setPopupImages([]);
+  };
+
+  // 팝업 이미지 추가 — FileReader 로 dataURL 미리보기 + File 보관 (저장 시 FTP 업로드)
+  const addPopupImage = (file: File) => {
+    if (popupImages.length >= 10) {
+      msgApi.warning('팝업 이미지는 최대 10장까지 가능합니다.');
+      return;
+    }
+    if (file.size / 1024 / 1024 > 10) {
+      msgApi.error('이미지는 10MB 이하여야 합니다.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const url = (e.target?.result as string) || '';
+      setPopupImages((prev) => [...prev, { url, file }]);
+    };
+    reader.readAsDataURL(file);
+  };
+  const removePopupImage = (idx: number) => {
+    setPopupImages((prev) => prev.filter((_, i) => i !== idx));
+  };
+  const movePopupImage = (from: number, to: number) => {
+    setPopupImages((prev) => {
+      if (to < 0 || to >= prev.length) return prev;
+      const arr = [...prev];
+      const [m] = arr.splice(from, 1);
+      arr.splice(to, 0, m);
+      return arr;
+    });
   };
 
   const deleteRegion = () => {
@@ -512,8 +565,31 @@ export default function EventCreatePage() {
       return { ...b, noticeImage: finalUrl, noticeImageFile: undefined };
     }
 
-    if (b.type !== 'image' || !b.src) return b;
-    if (/^https?:\/\//.test(b.src) && !b.file) return b;
+    if (b.type !== 'image') return b;
+
+    // 팝업 region 의 이미지들을 영구화 (data:/blob: → cafe24 URL)
+    let regions = b.regions;
+    if (regions && regions.some((r) => r.popup?.images?.length)) {
+      regions = await Promise.all(
+        regions.map(async (r) => {
+          if (!r.popup?.images?.length) return r;
+          const images = await Promise.all(
+            r.popup.images.map(async (img) => {
+              if (!img.url || /^https?:\/\//.test(img.url)) return { url: img.url, href: img.href, regions: img.regions };
+              const blob = img.file || (await (await fetch(img.url)).blob());
+              const ext = ((img.file?.name?.split('.').pop()) || blob.type.split('/')[1] || 'png').toLowerCase();
+              const fn = `popup_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+              const url = await persistImageToFtp(blob, fn);
+              return { url, href: img.href, regions: img.regions };
+            })
+          );
+          return { ...r, popup: { ...r.popup, images } };
+        })
+      );
+    }
+
+    if (!b.src) return { ...b, regions };
+    if (/^https?:\/\//.test(b.src) && !b.file) return { ...b, regions };
 
     let fileBlob: Blob;
     if (b.file) {
@@ -528,7 +604,7 @@ export default function EventCreatePage() {
     const filename = `event_${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
 
     const finalUrl = await persistImageToFtp(fileBlob, filename);
-    return { ...b, src: finalUrl, file: undefined, hash: undefined };
+    return { ...b, src: finalUrl, file: undefined, hash: undefined, regions };
   };
 
   const handleSubmit = () => {
@@ -598,6 +674,48 @@ export default function EventCreatePage() {
       },
     });
   };
+
+  // 팝업 영역 모달 공통 에디터 — 이미지 1~10장 + 각 링크 + 순서변경/삭제
+  const renderPopupEditor = () => (
+    <div>
+      <div style={{ marginBottom: 8, fontSize: 13, color: '#555' }}>
+        팝업에 띄울 이미지를 1~10장 추가하세요. 2장 이상이면 자동 순환(슬라이드)되고, 각 이미지에 링크를 걸 수 있습니다. 닫기 버튼은 자동 포함.
+      </div>
+      <Space style={{ marginBottom: 10 }} wrap>
+        <Upload
+          accept="image/*"
+          multiple
+          showUploadList={false}
+          beforeUpload={(file) => { addPopupImage(file); return false; }}
+        >
+          <Button icon={<UploadOutlined />} disabled={popupImages.length >= 10}>
+            팝업 이미지 추가 ({popupImages.length}/10)
+          </Button>
+        </Upload>
+        <Checkbox checked={popupShowClose} onChange={(e) => setPopupShowClose(e.target.checked)}>
+          우상단 X 닫기 버튼 표시 (끄면 닫기 영역으로만 닫힘)
+        </Checkbox>
+      </Space>
+      <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {popupImages.map((p, i) => (
+          <div key={i} style={{ border: '1px solid #f0f0f0', borderRadius: 6, padding: 12 }}>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+              <span style={{ fontSize: 13, fontWeight: 600 }}>팝업 이미지 {i + 1}</span>
+              <span style={{ flex: 1 }} />
+              <Button size="small" onClick={() => movePopupImage(i, i - 1)} disabled={i === 0}>↑</Button>
+              <Button size="small" onClick={() => movePopupImage(i, i + 1)} disabled={i === popupImages.length - 1}>↓</Button>
+              <Button size="small" danger onClick={() => removePopupImage(i)}>이미지 삭제</Button>
+            </div>
+            <PopupImageRegionEditor
+              src={p.url}
+              regions={p.regions || []}
+              onChange={(regions) => setPopupImages((prev) => prev.map((pp, idx) => (idx === i ? { ...pp, regions } : pp)))}
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 
   return (
     <AppShell>
@@ -738,6 +856,16 @@ export default function EventCreatePage() {
                   setAddType('tab');
                   setAddingMode(true);
                 }}>탭 이동 추가</Button>
+                <Button icon={<BlockOutlined />} onClick={() => {
+                  if (!selectedBlock || selectedBlock.type !== 'image') {
+                    msgApi.info('영역을 추가할 이미지 블록을 선택하세요.');
+                    return;
+                  }
+                  setPopupImages([]);
+                  setPopupShowClose(true);
+                  setAddType('popup');
+                  setAddingMode(true);
+                }}>팝업 영역 추가</Button>
                 <Button icon={<BlockOutlined />} onClick={() => openProductBlockModal()}>상품 추가</Button>
                 <Button icon={<VideoCameraAddOutlined />} onClick={() => openVideoModal()}>YouTube 추가</Button>
                 <Button icon={<FontSizeOutlined />} onClick={() => openTextModal()}>텍스트 추가</Button>
@@ -993,10 +1121,11 @@ export default function EventCreatePage() {
 
       <Modal
         open={mapModalVisible}
-        title={addType === 'link' ? 'URL 영역 설정' : addType === 'tab' ? '탭 이동 영역 설정' : '쿠폰 영역 설정'}
-        onCancel={() => { setMapModalVisible(false); setPendingRegion(null); setAddingMode(false); setAddType(null); mapForm.resetFields(); }}
+        title={addType === 'link' ? 'URL 영역 설정' : addType === 'tab' ? '탭 이동 영역 설정' : addType === 'popup' ? '팝업 영역 설정' : '쿠폰 영역 설정'}
+        onCancel={() => { setMapModalVisible(false); setPendingRegion(null); setAddingMode(false); setAddType(null); setPopupImages([]); mapForm.resetFields(); }}
         onOk={saveRegion}
         okText="적용"
+        width={addType === 'popup' ? 640 : 520}
       >
         <Form form={mapForm} layout="vertical">
           {addType === 'link' && (
@@ -1017,16 +1146,18 @@ export default function EventCreatePage() {
               <Select mode="tags" options={couponOptions} tokenSeparators={[',']} />
             </Form.Item>
           )}
+          {addType === 'popup' && renderPopupEditor()}
         </Form>
       </Modal>
 
       <Modal
         open={editModalVisible}
         title="영역 편집"
-        onCancel={() => setEditModalVisible(false)}
+        onCancel={() => { setEditModalVisible(false); setPopupImages([]); }}
+        width={editingRegion?.popup ? 640 : 520}
         footer={[
           <Button key="del" danger onClick={deleteRegion}>삭제</Button>,
-          <Button key="cancel" onClick={() => setEditModalVisible(false)}>취소</Button>,
+          <Button key="cancel" onClick={() => { setEditModalVisible(false); setPopupImages([]); }}>취소</Button>,
           <Button key="ok" type="primary" onClick={applyEditRegion}>적용</Button>,
         ]}
       >
@@ -1039,6 +1170,8 @@ export default function EventCreatePage() {
             <Form.Item name="tabTarget" label="이동할 탭" rules={[{ required: true, message: '이동할 탭을 선택하세요.' }]}>
               <Select options={tabTargetOptions} />
             </Form.Item>
+          ) : editingRegion?.popup ? (
+            renderPopupEditor()
           ) : (
             <Form.Item name="href" label="URL" rules={[{ required: true, message: 'URL을 입력하세요.' }]}>
               <Input placeholder="https://example.com" />

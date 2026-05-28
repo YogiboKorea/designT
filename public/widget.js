@@ -190,6 +190,12 @@
         };
         btn.style.cssText = `position:absolute; left:${l}%; top:${t}%; width:${w}%; height:${h}%; border:none; cursor:pointer; background:transparent;`;
         wrap.appendChild(btn);
+      } else if (r.popup && Array.isArray(r.popup.images) && r.popup.images.length) {
+        // 팝업 region — 클릭 시 이미지 캐러셀 오버레이
+        const btn = document.createElement('button');
+        btn.onclick = () => window.openEventPopup(r.popup);
+        btn.style.cssText = `position:absolute; left:${l}%; top:${t}%; width:${w}%; height:${h}%; border:none; cursor:pointer; background:transparent;`;
+        wrap.appendChild(btn);
       } else if (r.href) {
         const safeHref = normalizeHref(r.href);
         if (!safeHref) return;
@@ -203,6 +209,118 @@
     });
     root.appendChild(wrap);
   }
+
+  // 이벤트 팝업 — 1~10장 이미지 캐러셀 오버레이. 닫기 버튼 + 각 이미지 링크 + 자동 순환.
+  window.openEventPopup = (popup) => {
+    const images = (popup && popup.images) || [];
+    if (!images.length) return;
+    const interval = Number(popup.interval) || 3000;
+
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed; inset:0; z-index:99999; background:rgba(0,0,0,0.7); display:flex; align-items:center; justify-content:center; padding:20px; box-sizing:border-box;';
+
+    const box = document.createElement('div');
+    box.style.cssText = 'position:relative; max-width:480px; width:100%; max-height:100vh; overflow:hidden;';
+
+    // 슬라이드 영역
+    const slide = document.createElement('div');
+    slide.style.cssText = 'position:relative; width:100%;';
+
+    let idx = 0;
+    let closeFn = () => {};
+    const imgEls = images.map((im, i) => {
+      const regions = Array.isArray(im.regions) ? im.regions : [];
+      // 영역이 있으면 영역 기반 (닫기/링크), 없으면 레거시: 이미지 전체 링크.
+      if (regions.length > 0) {
+        const cell = document.createElement('div');
+        cell.style.cssText = `display:${i === 0 ? 'block' : 'none'}; position:relative;`;
+        const img = document.createElement('img');
+        img.src = im.url; img.alt = '';
+        img.style.cssText = 'width:100%; height:auto; display:block; border-radius:8px;';
+        cell.appendChild(img);
+        regions.forEach((rg) => {
+          const rl = (rg.xRatio * 100).toFixed(2), rt = (rg.yRatio * 100).toFixed(2), rw = (rg.wRatio * 100).toFixed(2), rh = (rg.hRatio * 100).toFixed(2);
+          if (rg.action === 'close') {
+            const cb = document.createElement('button');
+            cb.type = 'button';
+            cb.style.cssText = `position:absolute; left:${rl}%; top:${rt}%; width:${rw}%; height:${rh}%; border:none; background:transparent; cursor:pointer;`;
+            cb.onclick = (e) => { e.stopPropagation(); closeFn(); };
+            cell.appendChild(cb);
+          } else if (rg.action === 'link') {
+            const safe = rg.href ? normalizeHref(rg.href) : '';
+            if (!safe) return;
+            const la = document.createElement('a');
+            la.href = safe; la.target = '_blank'; la.rel = 'noopener noreferrer';
+            la.style.cssText = `position:absolute; left:${rl}%; top:${rt}%; width:${rw}%; height:${rh}%; display:block;`;
+            la.onclick = (e) => e.stopPropagation();
+            cell.appendChild(la);
+          }
+        });
+        slide.appendChild(cell);
+        return cell;
+      }
+      // 레거시: 이미지 전체 링크
+      const a = document.createElement('a');
+      const safe = im.href ? normalizeHref(im.href) : '';
+      if (safe) { a.href = safe; a.target = '_blank'; a.rel = 'noopener noreferrer'; }
+      a.style.cssText = `display:${i === 0 ? 'block' : 'none'};`;
+      const img = document.createElement('img');
+      img.src = im.url;
+      img.alt = '';
+      img.style.cssText = 'width:100%; height:auto; display:block; border-radius:8px;';
+      a.appendChild(img);
+      slide.appendChild(a);
+      return a;
+    });
+
+    const show = (n) => {
+      idx = (n + imgEls.length) % imgEls.length;
+      imgEls.forEach((el, i) => { el.style.display = i === idx ? 'block' : 'none'; });
+    };
+
+    const prevBodyOverflow = document.body.style.overflow;
+    const close = () => { if (timer) clearInterval(timer); overlay.remove(); document.body.style.overflow = prevBodyOverflow || 'visible'; };
+    closeFn = close;
+
+    box.appendChild(slide);
+
+    // 우상단 X 닫기 버튼 (선택). 끄면 닫기 영역으로만 닫힘.
+    if (popup.showCloseButton !== false) {
+      const closeBtn = document.createElement('button');
+      closeBtn.type = 'button';
+      closeBtn.innerHTML = '&times;';
+      closeBtn.setAttribute('aria-label', '닫기');
+      closeBtn.style.cssText = 'position:absolute; top:8px; right:8px; z-index:2; width:36px; height:36px; border:none; border-radius:50%; background:rgba(0,0,0,0.6); color:#fff; font-size:22px; line-height:36px; cursor:pointer;';
+      closeBtn.onclick = (e) => { e.stopPropagation(); close(); };
+      box.appendChild(closeBtn);
+    }
+
+    // 2장 이상이면 좌우 화살표 + 자동 순환
+    let timer = null;
+    if (imgEls.length > 1) {
+      const prev = document.createElement('button');
+      prev.type = 'button';
+      prev.innerHTML = '&#10094;';
+      prev.style.cssText = 'position:absolute; top:50%; left:8px; transform:translateY(-50%); z-index:2; width:36px; height:36px; border:none; border-radius:50%; background:rgba(0,0,0,0.4); color:#fff; font-size:18px; cursor:pointer;';
+      prev.onclick = (e) => { e.stopPropagation(); show(idx - 1); };
+      const next = document.createElement('button');
+      next.type = 'button';
+      next.innerHTML = '&#10095;';
+      next.style.cssText = 'position:absolute; top:50%; right:8px; transform:translateY(-50%); z-index:2; width:36px; height:36px; border:none; border-radius:50%; background:rgba(0,0,0,0.4); color:#fff; font-size:18px; cursor:pointer;';
+      next.onclick = (e) => { e.stopPropagation(); show(idx + 1); };
+      box.appendChild(prev);
+      box.appendChild(next);
+      timer = setInterval(() => show(idx + 1), interval);
+    }
+
+    // 배경 클릭 시 닫기 (box 내부 클릭은 유지)
+    overlay.onclick = () => close();
+    box.onclick = (e) => e.stopPropagation();
+
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+    document.body.style.overflow = 'hidden';
+  };
 
   function renderTextBlock(block, root) {
     const st = block.style || {};

@@ -345,6 +345,22 @@ export function renderGrid(cols: number, products: ProductLite[] = [], opts: Ren
 }
 
 // 이벤트 블록 공통 데이터 타입
+export interface PopupImageRegion {
+  xRatio: number;
+  yRatio: number;
+  wRatio: number;
+  hRatio: number;
+  action: 'close' | 'link';  // close = 팝업 닫기, link = URL 이동
+  href?: string;             // action='link' 일 때 이동 URL
+}
+
+export interface PopupImage {
+  url: string;       // 영구 cafe24 FTP URL (저장 후) 또는 data:/blob: (저장 전)
+  href?: string;     // (레거시) 이미지 전체 클릭 시 이동 링크 — regions 없을 때 fallback
+  file?: File;       // 저장 직전까지 임시 보관
+  regions?: PopupImageRegion[];  // 이미지 위에 그린 닫기/링크 영역
+}
+
 export interface RegionItem {
   id?: string;
   _id?: string;
@@ -360,6 +376,16 @@ export interface RegionItem {
    * href / coupon 과 상호 배타적.
    */
   tabTarget?: { blockId: string; tabIndex: number };
+  /**
+   * 클릭 시 팝업(모달)을 띄우는 영역.
+   * 1~10장의 이미지를 캐러셀로 순환 표시하고, 각 이미지에 링크 연결 가능. 닫기 버튼 포함.
+   * href / coupon / tabTarget 과 상호 배타적.
+   */
+  popup?: {
+    images: PopupImage[];
+    interval?: number;        // 자동 전환 간격(ms), 기본 3000. 1장이면 무시.
+    showCloseButton?: boolean; // 우상단 자동 X 닫기 버튼 표시 여부. 기본 true. false 면 닫기 영역으로만 닫음.
+  };
 }
 
 export interface EventBlock {
