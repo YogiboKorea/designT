@@ -122,7 +122,7 @@ export async function PUT(req: Request, props: { params: Promise<{ id: string }>
   try {
     const params = await props.params;
     const body = await req.json();
-    const { title, sections, imageUrl, eventType, couponNos } = body;
+    const { title, sections, imageUrl, eventType, couponNos, pageMaxWidth } = body;
 
     if (!title) {
       return NextResponse.json({ success: false, message: 'Title is required' }, { status: 400 });
@@ -134,6 +134,9 @@ export async function PUT(req: Request, props: { params: Promise<{ id: string }>
     if (imageUrl) updateData.imageUrl = imageUrl;
     if (eventType) updateData.eventType = eventType;
     if (Array.isArray(couponNos)) updateData.couponNos = couponNos;
+    // 0/빈값이면 미설정(null) 으로 저장 → 위젯 기본 800 사용.
+    if (pageMaxWidth === null || pageMaxWidth === '' || pageMaxWidth === undefined) updateData.pageMaxWidth = null;
+    else if (Number(pageMaxWidth) > 0) updateData.pageMaxWidth = Number(pageMaxWidth);
 
     const updatedEvent = await EventPage.findByIdAndUpdate(params.id, updateData, { new: true });
     if (!updatedEvent) {

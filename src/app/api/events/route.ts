@@ -22,7 +22,7 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { title, sections, imageUrl, eventType, couponNos } = body;
+    const { title, sections, imageUrl, eventType, couponNos, pageMaxWidth } = body;
 
     if (!title) {
       return NextResponse.json({ success: false, message: 'Title is required' }, { status: 400 });
@@ -37,6 +37,7 @@ export async function POST(req: Request) {
       imageUrl,
       eventType: eventType || 'event',
       couponNos: Array.isArray(couponNos) ? couponNos : [],
+      pageMaxWidth: Number(pageMaxWidth) > 0 ? Number(pageMaxWidth) : undefined,
     });
 
     return NextResponse.json({ success: true, data: newEvent }, { status: 201 });

@@ -438,6 +438,8 @@ export interface EventBlock {
   tabs?: Array<{ title: string; root: string | null; sub: string | null }>;
   /** 탭 헤더 한 줄에 몇 개씩 배치할지. undefined/null/0 이면 자동(전체 한 줄). 2면 2개씩 줄바꿈, 3이면 3개씩. */
   tabsPerRow?: number;
+  /** 탭 모드 콘텐츠 영역 너비. 'default'(가운데 800px) | 'wide'(95% 가운데) | 'full'(100% 꽉 채움) */
+  tabWidthMode?: 'default' | 'wide' | 'full';
   activeColor?: string;
   directProducts?: ProductLite[];
   tabDirectProducts?: Record<number, ProductLite[]>;

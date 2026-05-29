@@ -55,6 +55,10 @@ export default function EventCreatePage() {
   // 이벤트 전체에 적용할 쿠폰 — widget.js 의 data-coupon-nos 로 전달되어
   // 상품 가격을 쿠폰 할인가(benefit_price) 로 표시함.
   const [eventCouponNos, setEventCouponNos] = useState<string[]>([]);
+  // 이벤트 페이지 전체 콘텐츠 최대 너비(px). null/0 이면 위젯 기본 800.
+  // pageMaxWidth = 적용된 값(미리보기·저장에 사용), pageMaxWidthInput = 입력 중 draft.
+  const [pageMaxWidth, setPageMaxWidth] = useState<number | null>(null);
+  const [pageMaxWidthInput, setPageMaxWidthInput] = useState<number | null>(null);
 
   // 미리보기에 적용할 최대 쿠폰 할인율(%) — 다중 선택 시 최대치 사용.
   const previewDiscountPercent = useMemo(() => {
@@ -114,6 +118,17 @@ export default function EventCreatePage() {
   }, [mallId, blocks, categoryProductsMap]);
 
   const imgRef = useRef<HTMLImageElement | null>(null);
+  // 미리보기 스크롤 컨테이너 — 블록 선택 시 해당 블록 위치로 스크롤.
+  const previewScrollRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!selectedId) return;
+    const container = previewScrollRef.current;
+    if (!container) return;
+    const el = container.querySelector<HTMLElement>(`[data-pbid="${CSS.escape(selectedId)}"]`);
+    if (!el) return;
+    const offset = el.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop;
+    container.scrollTo({ top: Math.max(0, offset - 8), behavior: 'smooth' });
+  }, [selectedId]);
   const uploadProps = {
     accept: 'image/*',
     multiple: true,
@@ -647,6 +662,7 @@ export default function EventCreatePage() {
             imageUrl: firstImg?.src,
             eventType: 'event',
             couponNos: eventCouponNos,
+            pageMaxWidth: pageMaxWidth && pageMaxWidth > 0 ? pageMaxWidth : null,
           };
 
           msgApi.loading({ content: '이벤트 저장 중…', key: 'eventSave' });
@@ -741,17 +757,46 @@ export default function EventCreatePage() {
               <p style={{ margin: '0 0 8px', fontSize: 12, color: '#d32f2f', fontWeight: 600, lineHeight: 1.5 }}>
                 ⚠ 라이브 페이지에 쿠폰을 노출하려면 여기 목록에 반드시 추가해야 합니다. 추가하지 않은 쿠폰은
                 cafe24 에 자동 적용 가능 여부와 상관없이 위젯에 표시되지 않습니다.<br />
-                쿠폰을 추가/삭제한 뒤 저장만 하면 라이브 페이지에 자동 반영됩니다 (HTML 재배포 불필요).
+                쿠폰을 추가/삭제한 뒤 저장만 하면 라이브 페이지에 자동 반영됩니다 (HTML 재배포 불필요).<br />
+                아직 오픈되지 않은(예: 6/1 시작) 쿠폰은 목록에 없어도 <b>쿠폰 번호를 직접 입력 후 Enter</b> 로 미리 추가할 수 있습니다.
               </p>
               <Select
-                mode="multiple"
-                placeholder="이 이벤트에 적용할 쿠폰을 선택하세요"
+                mode="tags"
+                placeholder="쿠폰 선택, 또는 미오픈 쿠폰 번호 입력 후 Enter"
                 options={couponOptions}
+                optionFilterProp="label"
+                tokenSeparators={[',']}
                 value={eventCouponNos}
                 onChange={(v) => setEventCouponNos(v as string[])}
                 style={{ width: '100%' }}
                 allowClear
               />
+
+              <h3 style={{ marginTop: 20, marginBottom: 4 }}>↔ 페이지 최대 너비</h3>
+              <p style={{ margin: '0 0 8px', fontSize: 12, color: '#888' }}>
+                이벤트 페이지 전체(이미지·영상·유의사항·상품)의 웹 최대 너비입니다. 비워두면 기본 800px. 예: 1400<br />
+                값을 바꾼 뒤 <b>적용</b>을 누르면 미리보기에 반영됩니다. (라이브 반영은 하단 저장 버튼)
+              </p>
+              <Space align="center" wrap>
+                <InputNumber
+                  min={320}
+                  max={2400}
+                  step={20}
+                  placeholder="800"
+                  value={pageMaxWidthInput ?? undefined}
+                  onChange={(v) => setPageMaxWidthInput(typeof v === 'number' ? v : null)}
+                  onPressEnter={() => { setPageMaxWidth(pageMaxWidthInput); msgApi.success(`미리보기에 ${pageMaxWidthInput || 800}px 로 적용했습니다.`); }}
+                  style={{ width: 140 }}
+                  addonAfter="px"
+                />
+                <Button type="primary" onClick={() => { setPageMaxWidth(pageMaxWidthInput); msgApi.success(`미리보기에 ${pageMaxWidthInput || 800}px 로 적용했습니다.`); }}>적용</Button>
+                <Button size="small" onClick={() => { setPageMaxWidthInput(null); setPageMaxWidth(null); msgApi.success('기본 너비(800px)로 적용했습니다.'); }}>기본(800)으로</Button>
+                {(pageMaxWidthInput ?? null) !== (pageMaxWidth ?? null) ? (
+                  <span style={{ fontSize: 12, color: '#fa8c16' }}>변경됨 — [적용]을 눌러 미리보기에 반영하세요</span>
+                ) : (
+                  <span style={{ fontSize: 12, color: '#999' }}>현재 적용: {pageMaxWidth || 800}px</span>
+                )}
+              </Space>
 
               <Divider />
 
@@ -880,13 +925,15 @@ export default function EventCreatePage() {
 
             <div style={{ flex: 1, minWidth: 0, border: '1px solid #f0f0f0', borderRadius: 8, padding: 16, background: '#fafafa' }}>
               <h3 style={{ marginTop: 0 }}>미리보기</h3>
-              <div style={{ maxHeight: '70vh', overflowY: 'auto', paddingRight: 8 }}>
+              <div ref={previewScrollRef} style={{ maxHeight: '70vh', overflowY: 'auto', paddingRight: 8 }}>
+                <div style={{ maxWidth: pageMaxWidth || 800, margin: '0 auto', transition: 'max-width 0.2s ease' }}>
                 {blocks.map((b) => {
                   const isSelected = selectedId === b.id;
                   if (b.type === 'image') {
                     return (
                       <div
                         key={b.id}
+                        data-pbid={b.id}
                         onMouseDown={addingMode && isSelected ? onMouseDown : undefined}
                         onMouseMove={addingMode && isSelected ? onMouseMove : undefined}
                         onMouseUp={addingMode && isSelected ? onMouseUp : undefined}
@@ -895,6 +942,8 @@ export default function EventCreatePage() {
                           position: 'relative',
                           width: '100%',
                           marginBottom: 8,
+                          outline: isSelected ? '2px solid #fe6326' : undefined,
+                          outlineOffset: 2,
                         }}
                       >
                         <img ref={isSelected ? imgRef : null} src={b.src} alt="preview" style={{ width: '100%', display: 'block' }} />
@@ -950,7 +999,7 @@ export default function EventCreatePage() {
                   }
                   if (b.type === 'video') {
                     return (
-                      <div key={b.id} style={{ marginBottom: 8 }}>
+                      <div key={b.id} data-pbid={b.id} style={{ marginBottom: 8, outline: isSelected ? '2px solid #fe6326' : undefined, outlineOffset: 2 }}>
                         <YouTubeEmbed
                           id={b.youtubeId || ''}
                           ratioW={b.ratio?.w}
@@ -968,11 +1017,14 @@ export default function EventCreatePage() {
                     return (
                       <div
                         key={b.id}
+                        data-pbid={b.id}
                         style={{
                           position: 'relative',
                           border: '1px dashed #d9d9d9',
                           padding: '20px 10px 10px',
                           margin: `${b.style?.mt || 16}px 0 ${b.style?.mb || 16}px`,
+                          outline: isSelected ? '2px solid #fe6326' : undefined,
+                          outlineOffset: 2,
                         }}
                       >
                         <div
@@ -999,7 +1051,7 @@ export default function EventCreatePage() {
                   if (b.type === 'event_notice') {
                     const ns = b.noticeStyle || {};
                     return (
-                      <div key={b.id} style={{ position: 'relative', border: '1px dashed #d9d9d9', borderRadius: 8, padding: 16, margin: '8px 0', background: '#fafafa' }}>
+                      <div key={b.id} data-pbid={b.id} style={{ position: 'relative', border: '1px dashed #d9d9d9', borderRadius: 8, padding: 16, margin: '8px 0', background: '#fafafa', outline: isSelected ? '2px solid #fe6326' : undefined, outlineOffset: 2 }}>
                         <Alert
                           message={
                             <div>
@@ -1054,7 +1106,7 @@ export default function EventCreatePage() {
                       productsToDisplay = catNo ? (categoryProductsMap[String(catNo)] || []) : [];
                     }
                     return (
-                      <div key={b.id} style={{ padding: '16px 0', fontFamily: "'Noto Sans KR', sans-serif" }}>
+                      <div key={b.id} data-pbid={b.id} style={{ padding: '16px 0', fontFamily: "'Noto Sans KR', sans-serif", outline: isSelected ? '2px solid #fe6326' : undefined, outlineOffset: 2 }}>
                         <Alert
                           message={
                             <div>
@@ -1103,6 +1155,7 @@ export default function EventCreatePage() {
                   }
                   return null;
                 })}
+                </div>
               </div>
             </div>
           </div>

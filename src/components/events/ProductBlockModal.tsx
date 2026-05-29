@@ -9,6 +9,15 @@ import type { CategoryItem, EventBlock, ProductLite } from './event-blocks-share
 
 const { Option } = Select;
 
+// 카테고리 Select 검색: 카테고리명 + 카테고리 번호 둘 다로 매칭.
+const catFilter = (input: string, option?: { children?: React.ReactNode; value?: string | number }) => {
+  const kw = (input || '').trim().toLowerCase();
+  if (!kw) return true;
+  const label = String(option?.children ?? '').toLowerCase();
+  const val = String(option?.value ?? '');
+  return label.includes(kw) || val.includes(input.trim());
+};
+
 interface ProductBlockModalProps {
   visible: boolean;
   onCancel: () => void;
@@ -34,15 +43,23 @@ export default function ProductBlockModal({
   const [layoutType, setLayoutType] = useState<'single' | 'tabs'>('single');
   const [singleRoot, setSingleRoot] = useState<string | null>(null);
   const [singleSub, setSingleSub] = useState<string | null>(null);
+  // 드롭다운에 없는(번호만 아는) 카테고리를 직접 입력하기 위한 값.
+  const [singleManualCat, setSingleManualCat] = useState<string>('');
   const roots = allCats.filter((c) => c.category_depth === 1);
   const subs = allCats.filter((c) => c.category_depth === 2 && String(c.parent_category_no) === singleRoot);
-  const [tabs, setTabs] = useState<Array<{ title: string; root: string | null; sub: string | null }>>([
+  const subExists = useCallback((no: string | number | null | undefined) =>
+    !!no && allCats.some((c) => String(c.category_no) === String(no) && c.category_depth === 2), [allCats]);
+  const catExists = useCallback((no: string | number | null | undefined) =>
+    !!no && allCats.some((c) => String(c.category_no) === String(no)), [allCats]);
+  const [tabs, setTabs] = useState<Array<{ title: string; root: string | null; sub: string | null; manual?: string }>>([
     { title: '', root: null, sub: null },
     { title: '', root: null, sub: null },
   ]);
   const [activeColor, setActiveColor] = useState('#fe6326');
   // 탭 헤더 한 줄당 몇 개 — 0/null 이면 자동(전체 한 줄). 2/3/4 면 줄바꿈.
   const [tabsPerRow, setTabsPerRow] = useState<number | null>(null);
+  // 탭 콘텐츠 영역 너비 — 'default'(가운데 800px) | 'wide'(95% 가운데) | 'full'(100% 꽉 채움)
+  const [tabWidthMode, setTabWidthMode] = useState<'default' | 'wide' | 'full'>('default');
   const [directProducts, setDirectProducts] = useState<ProductLite[]>([]);
   const [tabDirectProducts, setTabDirectProducts] = useState<Record<number, ProductLite[]>>({});
   // 탭별 그리드 사이즈 — 없으면 상단 gridSize 를 fallback 으로 사용.
@@ -59,15 +76,33 @@ export default function ProductBlockModal({
       setTabGridSizes(initialData.tabGridSizes || {});
       setLayoutType((initialData.layoutType as 'single' | 'tabs') || 'single');
       setTabsPerRow(initialData.tabsPerRow ?? null);
+      setTabWidthMode(initialData.tabWidthMode || 'default');
       if (initialData.registerMode === 'category') {
         if (initialData.layoutType === 'single') {
-          setSingleRoot(initialData.root ? String(initialData.root) : null);
-          setSingleSub(initialData.sub ? String(initialData.sub) : null);
+          const rootVal = initialData.root ? String(initialData.root) : null;
+          const subVal = initialData.sub ? String(initialData.sub) : null;
+          // 저장된 sub 가 카테고리 목록에 없으면 = 번호 직접 입력한 값 → 수동 입력칸으로 복원.
+          if (subVal && !subExists(subVal)) {
+            setSingleManualCat(subVal);
+            setSingleRoot(rootVal && catExists(rootVal) ? rootVal : null);
+            setSingleSub(null);
+          } else {
+            setSingleRoot(rootVal);
+            setSingleSub(subVal);
+            setSingleManualCat('');
+          }
         } else if (initialData.layoutType === 'tabs') {
-          setTabs(initialData.tabs || [
+          const loaded = (initialData.tabs || [
             { title: '', root: null, sub: null },
             { title: '', root: null, sub: null },
-          ]);
+          ]).map((t) => {
+            const subVal = t.sub ? String(t.sub) : null;
+            if (subVal && !subExists(subVal)) {
+              return { ...t, manual: subVal, sub: null };
+            }
+            return { ...t, manual: '' };
+          });
+          setTabs(loaded);
           setActiveColor(initialData.activeColor || '#fe6326');
         }
       } else if (initialData.registerMode === 'direct') {
@@ -90,6 +125,7 @@ export default function ProductBlockModal({
       setLayoutType('single');
       setSingleRoot(null);
       setSingleSub(null);
+      setSingleManualCat('');
       setTabs([
         { title: '', root: null, sub: null },
         { title: '', root: null, sub: null },
@@ -98,14 +134,16 @@ export default function ProductBlockModal({
       setDirectProducts([]);
       setTabDirectProducts({});
       setTabsPerRow(null);
+      setTabWidthMode('default');
     }
-  }, [visible, initialData, form]);
+  }, [visible, initialData, form, subExists, catExists]);
 
   const handleRegisterModeChange = useCallback((val: 'direct' | 'category') => {
     setRegisterMode(val);
     setLayoutType('single');
     setSingleRoot(null);
     setSingleSub(null);
+    setSingleManualCat('');
     setTabs([
       { title: '', root: null, sub: null },
       { title: '', root: null, sub: null },
@@ -119,6 +157,7 @@ export default function ProductBlockModal({
     setLayoutType(val);
     setSingleRoot(null);
     setSingleSub(null);
+    setSingleManualCat('');
     setTabs([
       { title: '', root: null, sub: null },
       { title: '', root: null, sub: null },
@@ -136,7 +175,7 @@ export default function ProductBlockModal({
     setTabs((ts) => [...ts, { title: '', root: null, sub: null }]);
   }, [tabs]);
 
-  const updateTab = useCallback((i: number, key: 'title' | 'root' | 'sub', val: string | null) => {
+  const updateTab = useCallback((i: number, key: 'title' | 'root' | 'sub' | 'manual', val: string | null) => {
     setTabs((ts) => {
       const a = [...ts];
       a[i] = { ...a[i], [key]: val, ...(key === 'root' ? { sub: null } : {}) };
@@ -238,14 +277,14 @@ export default function ProductBlockModal({
       }
     }
     if (registerMode === 'category') {
-      if (layoutType === 'single' && !singleRoot) {
-        msgApi.warning('카테고리를 선택해주세요.');
+      if (layoutType === 'single' && !singleRoot && !singleManualCat.trim()) {
+        msgApi.warning('카테고리를 선택하거나 번호를 직접 입력해주세요.');
         return;
       }
       if (layoutType === 'tabs') {
-        const hasCategoryInEveryTab = tabs.every((t) => t.root);
+        const hasCategoryInEveryTab = tabs.every((t) => t.root || (t.manual || '').trim());
         if (!hasCategoryInEveryTab) {
-          msgApi.warning('모든 탭에 카테고리를 설정해주세요.');
+          msgApi.warning('모든 탭에 카테고리를 설정하거나 번호를 직접 입력해주세요.');
           return;
         }
       }
@@ -260,10 +299,20 @@ export default function ProductBlockModal({
     };
     if (registerMode === 'category') {
       if (layoutType === 'single') {
-        blockData.root = singleRoot || undefined;
-        blockData.sub = singleSub || undefined;
+        // 수동 입력 번호가 있으면 그게 우선(fetch 는 sub || root 순). 없으면 드롭다운 값.
+        const manual = singleManualCat.trim();
+        blockData.root = (singleRoot || manual) || undefined;
+        blockData.sub = (manual || singleSub) || undefined;
       } else {
-        blockData.tabs = tabs;
+        // 탭별 수동 입력 번호를 sub 로 접어서 저장 → 위젯(sub||root)이 그대로 사용.
+        blockData.tabs = tabs.map((t) => {
+          const manual = (t.manual || '').trim();
+          return {
+            title: t.title,
+            root: (t.root || manual) || null,
+            sub: (manual || t.sub) || null,
+          };
+        });
         blockData.activeColor = activeColor;
       }
     } else if (registerMode === 'direct') {
@@ -283,9 +332,13 @@ export default function ProductBlockModal({
     if (layoutType === 'tabs' && tabsPerRow && tabsPerRow >= 2) {
       blockData.tabsPerRow = tabsPerRow;
     }
+    // 탭 콘텐츠 너비 (기본값 아닐 때만 저장)
+    if (layoutType === 'tabs' && tabWidthMode !== 'default') {
+      blockData.tabWidthMode = tabWidthMode;
+    }
     onOk(blockData);
     onCancel();
-  }, [registerMode, gridSize, layoutType, singleRoot, singleSub, tabs, activeColor, directProducts, tabDirectProducts, tabGridSizes, tabsPerRow, onOk, onCancel, msgApi, initialData]);
+  }, [registerMode, gridSize, layoutType, singleRoot, singleSub, singleManualCat, tabs, activeColor, directProducts, tabDirectProducts, tabGridSizes, tabsPerRow, tabWidthMode, onOk, onCancel, msgApi, initialData]);
 
   return (
     <Modal
@@ -331,22 +384,39 @@ export default function ProductBlockModal({
         />
 
         {registerMode === 'category' && layoutType === 'single' && (
-          <Space style={{ marginTop: 24 }}>
-            <Select placeholder="대분류" style={{ width: 180 }} value={singleRoot} onChange={(v) => setSingleRoot(v)}>
-              {roots.map((r) => (
-                <Option key={r.category_no} value={String(r.category_no)}>
-                  {r.category_name}
-                </Option>
-              ))}
-            </Select>
-            <Select placeholder="소분류" style={{ width: 180 }} value={singleSub} onChange={(v) => setSingleSub(v)}>
-              {subs.map((s) => (
-                <Option key={s.category_no} value={String(s.category_no)}>
-                  {s.category_name}
-                </Option>
-              ))}
-            </Select>
-          </Space>
+          <div style={{ marginTop: 24 }}>
+            <Space wrap>
+              <Select showSearch filterOption={catFilter} placeholder="대분류 (이름/번호 검색)" style={{ width: 220 }} value={singleRoot} onChange={(v) => setSingleRoot(v)} disabled={!!singleManualCat.trim()}>
+                {roots.map((r) => (
+                  <Option key={r.category_no} value={String(r.category_no)}>
+                    {r.category_name} ({r.category_no})
+                  </Option>
+                ))}
+              </Select>
+              <Select showSearch filterOption={catFilter} placeholder="소분류 (이름/번호 검색)" style={{ width: 220 }} value={singleSub} onChange={(v) => setSingleSub(v)} disabled={!!singleManualCat.trim()}>
+                {subs.map((s) => (
+                  <Option key={s.category_no} value={String(s.category_no)}>
+                    {s.category_name} ({s.category_no})
+                  </Option>
+                ))}
+              </Select>
+            </Space>
+            <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 13, color: '#888', whiteSpace: 'nowrap' }}>또는 번호 직접 입력</span>
+              <Input
+                placeholder="카테고리 번호 (예: 1167)"
+                style={{ width: 220 }}
+                value={singleManualCat}
+                onChange={(e) => setSingleManualCat(e.target.value.replace(/[^0-9]/g, ''))}
+                allowClear
+              />
+            </div>
+            {singleManualCat.trim() && (
+              <div style={{ marginTop: 6, fontSize: 12, color: '#fa8c16' }}>
+                번호 직접 입력 사용 중 — 위 드롭다운 선택은 무시됩니다. (지우면 다시 드롭다운 사용)
+              </div>
+            )}
+          </div>
         )}
 
         {registerMode === 'category' && layoutType === 'tabs' && (
@@ -376,22 +446,24 @@ export default function ProductBlockModal({
                                 <MenuOutlined />
                               </span>
                               <Input placeholder={`탭 ${i + 1} 제목`} style={{ width: 110 }} value={t.title} onChange={(e) => updateTab(i, 'title', e.target.value)} />
-                              <Select placeholder="대분류" style={{ width: 130 }} value={t.root} onChange={(v) => updateTab(i, 'root', v)}>
+                              <Select showSearch filterOption={catFilter} placeholder="대분류" style={{ width: 120 }} value={t.root} onChange={(v) => updateTab(i, 'root', v)} disabled={!!(t.manual || '').trim()}>
                                 {roots.map((r) => (
                                   <Option key={r.category_no} value={String(r.category_no)}>
-                                    {r.category_name}
+                                    {r.category_name} ({r.category_no})
                                   </Option>
                                 ))}
                               </Select>
-                              <Select placeholder="소분류" style={{ width: 130 }} value={t.sub} onChange={(v) => updateTab(i, 'sub', v)}>
+                              <Select showSearch filterOption={catFilter} placeholder="소분류" style={{ width: 120 }} value={t.sub} onChange={(v) => updateTab(i, 'sub', v)} disabled={!!(t.manual || '').trim()}>
                                 {allCats
                                   .filter((c) => c.category_depth === 2 && String(c.parent_category_no) === t.root)
                                   .map((s) => (
                                     <Option key={s.category_no} value={String(s.category_no)}>
-                                      {s.category_name}
+                                      {s.category_name} ({s.category_no})
                                     </Option>
                                   ))}
                               </Select>
+                              <Input placeholder="번호 직접" style={{ width: 96 }} value={t.manual || ''} onChange={(e) => updateTab(i, 'manual', e.target.value.replace(/[^0-9]/g, ''))} allowClear />
+
                               <Select
                                 value={tabGridSizes[i] ?? gridSize}
                                 onChange={(v) => setTabGridSizes((prev) => ({ ...prev, [i]: v }))}
@@ -432,6 +504,16 @@ export default function ProductBlockModal({
                 ]}
                 value={tabsPerRow ?? 0}
                 onChange={(v) => setTabsPerRow(Number(v) || null)}
+              />
+              <span style={{ marginLeft: 12 }}>콘텐츠 너비:</span>
+              <Segmented
+                options={[
+                  { label: '기본(800px 가운데)', value: 'default' },
+                  { label: '넓게(95% 가운데)', value: 'wide' },
+                  { label: '꽉 채움(100%)', value: 'full' },
+                ]}
+                value={tabWidthMode}
+                onChange={(v) => setTabWidthMode(v as 'default' | 'wide' | 'full')}
               />
             </Space>
           </>
@@ -513,6 +595,16 @@ export default function ProductBlockModal({
                 ]}
                 value={tabsPerRow ?? 0}
                 onChange={(v) => setTabsPerRow(Number(v) || null)}
+              />
+              <span style={{ marginLeft: 12 }}>콘텐츠 너비:</span>
+              <Segmented
+                options={[
+                  { label: '기본(800px 가운데)', value: 'default' },
+                  { label: '넓게(95% 가운데)', value: 'wide' },
+                  { label: '꽉 채움(100%)', value: 'full' },
+                ]}
+                value={tabWidthMode}
+                onChange={(v) => setTabWidthMode(v as 'default' | 'wide' | 'full')}
               />
             </Space>
           </>

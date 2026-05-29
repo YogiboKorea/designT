@@ -32,6 +32,8 @@ export interface IEventPage extends Document {
    * 쿠폰 할인가(benefit_price) 로 표시하는 용도.
    */
   couponNos: string[];
+  /** 이벤트 페이지 전체 콘텐츠 최대 너비(px). 없으면 위젯 기본값 800 사용. */
+  pageMaxWidth?: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -80,6 +82,10 @@ const EventPageSchema: Schema = new Schema({
   couponNos: {
     type: [String],
     default: [],
+  },
+  pageMaxWidth: {
+    type: Number,
+    required: false,
   },
 }, {
   timestamps: true,
