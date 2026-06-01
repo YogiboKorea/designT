@@ -499,7 +499,7 @@
   // ────────────────────────────────────────────────────────────────
   // 4) 상품 데이터 로드 (cafe24 ychat 서버에서 fetch)
   // ────────────────────────────────────────────────────────────────
-  async function fetchProducts(directNosAttr, category, limit = 300, offset = 0) {
+  async function fetchProducts(directNosAttr, category, limit = 300) {
     if (!PRODUCT_API_BASE) return [];
     const fetchOpts = { cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } };
 
@@ -533,23 +533,20 @@
       ));
       return results.map(p => (p && p.product_no) ? p : {}).map(mapProductData);
     } else if (category) {
-      const prodUrl = `${PRODUCT_API_BASE}/api/${mallId}/categories/${category}/products?limit=${limit}&offset=${offset}${couponQSAppend()}`;
+      const prodUrl = `${PRODUCT_API_BASE}/api/${mallId}/categories/${category}/products?limit=${limit}${couponQSAppend()}`;
       const rawProducts = await fetchWithRetry(prodUrl, fetchOpts).then(r => r.json()).then(json => Array.isArray(json) ? json : (json.products || []));
       return rawProducts.map(p => (typeof p === 'object' ? p : {})).map(mapProductData);
     }
     return [];
   }
 
-  // 상품 그리드 로드 — 제품이 많으면 화면에 보이는 만큼(첫 페이지)을 먼저 빠르게 렌더하고,
-  // 스크롤해서 그리드 아래 센티넬에 가까워지면 다음 페이지를 이어서 불러온다(점진 로딩).
+  // 상품 그리드 로드 — 패널 하나당 1회 호출, 한 번에 전체 상품을 불러와 렌더한다.
+  // (점진/무한 스크롤 방식은 무한 로딩 이슈로 제거함)
   async function loadPanel(ul) {
     // 중복 로드 방지 — IntersectionObserver 와 showTab 양쪽에서 호출될 수 있음.
     if (!ul || ul.dataset.loaded === '1' || ul.dataset.loading === '1') return;
     ul.dataset.loading = '1';
     const cols = parseInt(ul.dataset.gridSize, 10) || 2;
-    const safeCols = applyGridStyle(ul, cols);
-    const directIds = (ul.dataset.directNos || '').split(',').map(s => s.trim()).filter(Boolean);
-    const cate = ul.dataset.cate;
 
     // savedProducts(저장 시점 값) 맵 — direct 모드 누락 필드 fallback.
     let savedMap = {};
@@ -564,61 +561,18 @@
       spinner.className = 'grid-spinner';
       if (ul.parentNode) ul.parentNode.insertBefore(spinner, ul);
     }, 2000);
-    const clearSpinner = () => { clearTimeout(spinnerTimer); if (spinner) { spinner.remove(); spinner = null; } };
 
-    // 1×1 — 단일 상품만 노출, 점진 로딩 불필요.
-    if (safeCols === 1) {
-      try {
-        const products = directIds.length
-          ? await fetchProducts(directIds[0], null, 1)
-          : await fetchProducts(null, cate, 1);
-        renderProducts(ul, mergeSavedProducts(products, savedMap), cols);
-        ul.dataset.loaded = '1';
-      } catch (err) { console.error('상품 로드 실패:', err); showLoadError(ul); }
-      finally { clearSpinner(); ul.dataset.loading = ''; }
-      return;
-    }
-
-    // 점진 로딩 — 처음엔 ~2줄 분량만, 이후 스크롤 시 페이지 단위로 추가.
-    const PAGE = Math.max(safeCols * 2, 8);
-    let offset = 0, done = false, pageLoading = false;
-
-    async function loadNextPage() {
-      if (done || pageLoading) return;
-      pageLoading = true;
-      try {
-        let pageProducts = [];
-        if (directIds.length) {
-          const slice = directIds.slice(offset, offset + PAGE);
-          if (!slice.length) { done = true; return; }
-          pageProducts = await fetchProducts(slice.join(','), null);
-          offset += slice.length;
-          if (offset >= directIds.length) done = true;
-        } else if (cate) {
-          pageProducts = await fetchProducts(null, cate, PAGE, offset);
-          offset += PAGE;
-          if (!pageProducts || pageProducts.length === 0) done = true;
-        } else { done = true; return; }
-        appendProductCards(ul, mergeSavedProducts(pageProducts, savedMap));
-        if (pageProducts && pageProducts.length) ul.dataset.loaded = '1';
-      } finally { pageLoading = false; clearSpinner(); }
-    }
-
-    try { await loadNextPage(); }
-    catch (err) { console.error('상품 로드 실패:', err); showLoadError(ul); clearSpinner(); ul.dataset.loading = ''; return; }
-    ul.dataset.loading = '';
-
-    // 스크롤 센티넬 — 그리드 바로 아래에 두고, 가까워지면 다음 페이지 로드.
-    if (!done && 'IntersectionObserver' in window) {
-      const sentinel = document.createElement('div');
-      sentinel.style.cssText = 'width:100%; height:1px;';
-      if (ul.parentNode) ul.parentNode.insertBefore(sentinel, ul.nextSibling);
-      const moreObs = new IntersectionObserver(async (entries) => {
-        if (!entries[0].isIntersecting || pageLoading || done) return;
-        try { await loadNextPage(); } catch (e) { /* 마지막 정상 데이터 유지 */ }
-        if (done) { moreObs.disconnect(); sentinel.remove(); }
-      }, { rootMargin: '400px 0px' });
-      moreObs.observe(sentinel);
+    try {
+      const products = await fetchProducts(ul.dataset.directNos, ul.dataset.cate);
+      renderProducts(ul, mergeSavedProducts(products, savedMap), cols);
+      ul.dataset.loaded = '1';
+    } catch (err) {
+      console.error('상품 로드 실패:', err);
+      showLoadError(ul);
+    } finally {
+      clearTimeout(spinnerTimer);
+      if (spinner) spinner.remove();
+      ul.dataset.loading = '';
     }
   }
 
@@ -748,13 +702,6 @@
     const list = safeCols === 1 ? (products || []).slice(0, 1) : (products || []);
     ul.innerHTML = buildProductCardsHtml(list);
     preloadHoverImgs(list);
-  }
-
-  // 이어붙이기 렌더 (점진 로딩) — 기존 카드 뒤에 추가.
-  function appendProductCards(ul, products) {
-    if (!products || !products.length) return;
-    ul.insertAdjacentHTML('beforeend', buildProductCardsHtml(products));
-    preloadHoverImgs(products);
   }
 
   // savedProducts(저장 시점 값) 를 fresh 데이터에 병합 — 누락 필드 fallback.
@@ -1036,15 +983,15 @@
 
   // 쿠폰 다운로드: 다중 쿠폰을 한 창에서 한꺼번에 발급.
   // - 콤마 구분 문자열 또는 배열 모두 허용
-  // - cafe24 IssueDownload 는 coupon_no 파라미터를 반복으로 넘기면(coupon_no=A&coupon_no=B…)
-  //   한 번의 호출로 여러 쿠폰을 동시에 발급한다. (창 여러 개 띄우면 팝업 차단됨)
+  // - cafe24 IssueDownload 는 coupon_no 에 "콤마 구분 단일 파라미터"(coupon_no=A,B,C) 형식으로
+  //   여러 쿠폰을 한 번에 발급한다. 반복 파라미터(coupon_no=A&coupon_no=B)는 마지막 1개만 적용되므로 금지.
   window.downloadCoupon = (coupons) => {
     const list = Array.isArray(coupons)
       ? coupons.map(s => String(s).trim()).filter(Boolean)
       : String(coupons || '').split(',').map(s => s.trim()).filter(Boolean);
     if (list.length === 0) { alert('쿠폰 정보가 없습니다.'); return; }
-    const qs = list.map(cpn => `coupon_no=${encodeURIComponent(cpn)}`).join('&');
-    const url = `/exec/front/newcoupon/IssueDownload?${qs}&opener_url=${encodeURIComponent(location.href)}`;
+    // 쿠폰 번호는 숫자라 콤마 그대로 안전. 인코딩하면 %2C 로 바뀌어 분리 실패할 수 있어 콤마는 그대로 둔다.
+    const url = `/exec/front/newcoupon/IssueDownload?coupon_no=${list.join(',')}&opener_url=${encodeURIComponent(location.href)}`;
     window.open(url, '_blank');
   };
 
