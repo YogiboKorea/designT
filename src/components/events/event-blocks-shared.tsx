@@ -93,6 +93,8 @@ export interface ProductLite {
   decoration_icon_url?: string | null;
   icons?: Record<string, string | null | undefined> | null;
   additional_icons?: ProductIcon[];
+  /** cafe24 sold_out 필드 ('T'/'F'). 'T' 면 미리보기/위젯에 SOLD OUT 오버레이 표시. */
+  sold_out?: 'T' | 'F' | string;
 }
 
 export interface RenderGridOptions {
@@ -245,6 +247,28 @@ export function renderGrid(cols: number, products: ProductLite[] = [], opts: Ren
                   {iconImgs.map((ic, idx) => (
                     <img key={idx} src={ic.url} alt={ic.alt} style={{ width: '100%', maxWidth: 40, height: 'auto', display: 'block' }} />
                   ))}
+                </div>
+              )}
+              {/* 품절 오버레이 — 라이브 위젯의 .prd_sold_out_overlay 와 동일 스타일 */}
+              {product.sold_out === 'T' && (
+                <div
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    background: 'rgba(0,0,0,0.45)',
+                    color: '#fff',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: 22,
+                    fontWeight: 700,
+                    letterSpacing: 3,
+                    borderRadius: 12,
+                    pointerEvents: 'none',
+                    zIndex: 3,
+                  }}
+                >
+                  SOLD OUT
                 </div>
               )}
             </div>

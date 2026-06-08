@@ -26,6 +26,11 @@ export interface ProductItem {
   product_name: string;
   list_image?: string;
   price?: string | number;
+  /** cafe24 sold_out 필드 — 'T' 면 admin 미리보기에 SOLD OUT 오버레이 표시 */
+  sold_out?: 'T' | 'F' | string;
+  eng_product_name?: string;
+  summary_description?: string;
+  simple_description?: string;
 }
 
 interface MorePrdProps {
