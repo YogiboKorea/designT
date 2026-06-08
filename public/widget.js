@@ -893,12 +893,25 @@
         return;
       }
       // ychat 의 실제 라우트는 `/api/{mallId}/events/{id}`. eventTemp 의 `/api/events/{id}` 도 함께 폴백.
-      let response = await fetch(`${SELF_BASE}/api/${encodeURIComponent(mallId)}/events/${pageId}`);
-      if (!response.ok) {
-        // eventTemp 자체 도메인에서 서빙되는 경우의 보조 경로
-        response = await fetch(`${SELF_BASE}/api/events/${pageId}?mallId=${encodeURIComponent(mallId)}`);
+      // cloudtype cold start / 일시적 5xx / 네트워크 흔들림으로 한 번 실패하면 즉시
+      // "이벤트를 불러올 수 없습니다" 가 떠버리는 문제를 막기 위해 자동 재시도(3회, 백오프)한다.
+      const _eventUrls = [
+        `${SELF_BASE}/api/${encodeURIComponent(mallId)}/events/${pageId}`,
+        `${SELF_BASE}/api/events/${pageId}?mallId=${encodeURIComponent(mallId)}`,
+      ];
+      const _retryDelays = [0, 1200, 2500];
+      let response = null, _lastErr = null;
+      for (let attempt = 0; attempt < _retryDelays.length && !response; attempt++) {
+        if (_retryDelays[attempt]) await new Promise(r => setTimeout(r, _retryDelays[attempt]));
+        for (const url of _eventUrls) {
+          try {
+            const res = await fetch(url, { cache: 'no-store' });
+            if (res.ok) { response = res; break; }
+            _lastErr = new Error('HTTP ' + res.status);
+          } catch (e) { _lastErr = e; }
+        }
       }
-      if (!response.ok) throw new Error('Event data fetch failed');
+      if (!response) throw _lastErr || new Error('Event data fetch failed');
       const json = await response.json();
       // 우리 서버 응답 형태: { success, data }
       const ev = json && json.data ? json.data : json;
