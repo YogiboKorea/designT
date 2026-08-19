@@ -44,6 +44,7 @@ const MENU: MenuSection[] = [
           { href: '/prompt-builder', label: 'GPT용 프롬프트 생성', emoji: '✨' },
           { href: '/references', label: '레퍼런스 등록', emoji: '📚' },
           { href: '/products',   label: '제품 등록',     emoji: '📦' },
+          { href: '/image-studio', label: '이미지 생성',  emoji: '🖼️' },
         ],
       },
     ],
