@@ -107,6 +107,7 @@ export async function POST(req: NextRequest) {
       prompt: body.prompt ?? '',
       model: body.model ?? '',
       provider: body.provider ?? 'higgsfield',
+      inputImages: body.inputImages ?? [],
       referenceIds: body.referenceIds ?? [],
       productId: body.productId || null,
       elementId: body.elementId ?? '',

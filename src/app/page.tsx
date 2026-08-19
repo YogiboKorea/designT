@@ -13,18 +13,15 @@ interface ShortcutCard {
 }
 
 const SHORTCUTS: ShortcutCard[] = [
+  // /prompt-builder(GPT용 프롬프트)와 /products(제품 등록)는 메뉴에서 숨김.
+  // 제품 정보는 youtube 프로젝트 products.json 을 기준으로 쓰고 있어 출처가 다르다.
+  // 라우트 자체는 살아 있으므로 URL 직접 접근은 가능하다.
   {
-    href: '/prompt-builder',
+    href: '/image-studio',
     emoji: '🎨',
-    title: '디자인 프롬프트 생성',
-    description: '캠페인 양식 + 운영 정보 + 다양화 옵션 → AI 도구용 정교한 프롬프트',
+    title: '이미지 생성',
+    description: '레퍼런스 “풍” + 우리 제품 → 텍스트 없는 배너 비주얼 (폴더별 관리)',
     badge: '핵심',
-  },
-  {
-    href: '/products',
-    emoji: '📦',
-    title: '제품 등록',
-    description: '빈백/바디필로우/인형 라이브러리 관리 (FTP 자동 업로드)',
   },
   {
     href: '/references',
@@ -69,7 +66,7 @@ export default function Home() {
         <header style={S.header}>
           <h1 style={S.title}>Yogibo 디자인 빌더</h1>
           <p style={S.subtitle}>
-            AI 도구용 정교한 프롬프트 자동 생성 + 제품/레퍼런스 라이브러리 관리
+            레퍼런스 “풍”을 따라 배너 비주얼 생성 + 이벤트 페이지 · 배너 제작
           </p>
         </header>
 
@@ -97,11 +94,11 @@ export default function Home() {
         </div>
 
         <div style={S.notice}>
-          <div style={S.noticeTitle}>📌 새 사이드바 메뉴 적용 (v4.4)</div>
+          <div style={S.noticeTitle}>📌 사이드바 메뉴 안내</div>
           <div style={S.noticeBody}>
-            왼쪽 사이드바에서 모든 기능에 접근할 수 있습니다.
-            "디자인 프롬프트 생성" 하위에 레퍼런스/제품/일괄 등록이 있고,
+            "AI 이미지 생성" 하위에 레퍼런스 등록 / 이미지 생성이 있고,
             "배너 생성" 하위에 자사몰/스마트스토어/SNS 가 있습니다.
+            생성된 이미지는 텍스트가 없는 순수 비주얼이며, 한글 카피는 배너 생성에서 얹습니다.
           </div>
         </div>
       </div>

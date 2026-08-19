@@ -68,6 +68,9 @@ export interface IGeneratedImage extends Document {
   /** 생성 도구 (현재는 higgsfield 고정, 추후 fal 등) */
   provider: string;
 
+  /** 생성에 실제로 넣은 입력 이미지들 (스냅샷) — "이걸로 만들어졌다" 를 보여주는 근거 */
+  inputImages: InputImage[];
+
   /** 풍(스타일) 소스로 쓴 ReferenceImage._id 목록 */
   referenceIds: mongoose.Types.ObjectId[];
   /** 접목한 Product._id (맥스 등) */
@@ -107,6 +110,19 @@ const GeneratedImageSchema = new Schema<IGeneratedImage>(
     prompt: { type: String, default: '' },
     model: { type: String, default: '' },
     provider: { type: String, default: 'higgsfield' },
+
+    inputImages: {
+      type: [
+        {
+          _id: false,
+          kind: { type: String, enum: ['reference', 'product'], required: true },
+          title: { type: String, default: '' },
+          url: { type: String, required: true },
+          role: { type: String, default: '' },
+        },
+      ],
+      default: [],
+    },
 
     referenceIds: [{ type: Schema.Types.ObjectId, ref: 'ReferenceImage' }],
     productId: { type: Schema.Types.ObjectId, ref: 'Product', default: null },

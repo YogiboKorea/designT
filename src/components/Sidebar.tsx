@@ -37,13 +37,15 @@ const MENU: MenuSection[] = [
     title: '콘텐츠 자산',
     items: [
       {
-        href: '/prompt-builder',
+        href: '/image-studio',
         label: 'AI 이미지 생성',
         emoji: '🎨',
+        // 숨김 처리한 항목 (라우트는 살아 있고 메뉴에서만 뺀다):
+        //   · /prompt-builder — GPT 붙여넣기용 프롬프트. 지금은 Higgsfield 파이프라인을 쓰므로 미노출.
+        //   · /products       — 제품 정보는 youtube 프로젝트의 products.json(70종, 실측/기하/8방향뷰)을
+        //                       기준으로 쓰기 때문에, 이 목록은 출처가 달라 혼선만 준다.
         children: [
-          { href: '/prompt-builder', label: 'GPT용 프롬프트 생성', emoji: '✨' },
           { href: '/references', label: '레퍼런스 등록', emoji: '📚' },
-          { href: '/products',   label: '제품 등록',     emoji: '📦' },
           { href: '/image-studio', label: '이미지 생성',  emoji: '🖼️' },
         ],
       },

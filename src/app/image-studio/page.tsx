@@ -29,6 +29,13 @@ interface Folder {
   updatedAt: string;
 }
 
+interface InputImage {
+  kind: 'reference' | 'product';
+  title: string;
+  url: string;
+  role?: string;
+}
+
 interface GenImage {
   _id: string;
   folderId: string;
@@ -42,9 +49,46 @@ interface GenImage {
   provider: string;
   elementId: string;
   textSafeArea: string;
+  inputImages: InputImage[];
   tags: string[];
   note: string;
   createdAt: string;
+}
+
+const KIND_LABEL: Record<string, string> = {
+  reference: '📚 레퍼런스 (풍)',
+  product: '📦 제품 (형태·색)',
+};
+
+/** "이 이미지들로 만들어졌다" — 입력 이미지 계보 */
+function Lineage({ inputs, result }: { inputs: InputImage[]; result?: string }) {
+  if (!inputs?.length) return null;
+  return (
+    <div style={S.lineage}>
+      <div style={S.lineageTitle}>이 이미지들로 생성되었습니다</div>
+      <div style={S.lineageRow}>
+        {inputs.map((inp, i) => (
+          <div key={inp.url + i} style={S.lineageItem}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={inp.url} alt={inp.title} style={S.lineageImg} />
+            <div style={S.lineageKind}>{KIND_LABEL[inp.kind] ?? inp.kind}</div>
+            <div style={S.lineageName}>{inp.title}</div>
+            {inp.role && <div style={S.lineageRole}>{inp.role}</div>}
+          </div>
+        ))}
+        {result && (
+          <>
+            <div style={S.arrow}>→</div>
+            <div style={S.lineageItem}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={result} alt="결과" style={S.lineageImg} />
+              <div style={{ ...S.lineageKind, color: '#fe6326' }}>✨ 결과</div>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
 }
 
 const SAFE_AREA_LABEL: Record<string, string> = {
@@ -72,6 +116,8 @@ export default function ImageStudioPage() {
 
   // 상세 보기
   const [detail, setDetail] = useState<GenImage | null>(null);
+  // 카드 하단 프롬프트/계보 펼침 상태
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   const loadFolders = () => {
     fetch('/api/generated-images/folders')
@@ -120,6 +166,15 @@ export default function ImageStudioPage() {
       alert('이미지 URL 복사됨.\n배너 생성 / 이벤트 페이지에 붙여넣어 사용하세요.');
     } catch {
       alert('복사 실패. 주소를 직접 선택해 복사해주세요.');
+    }
+  };
+
+  const copyPrompt = async (prompt: string) => {
+    try {
+      await navigator.clipboard.writeText(prompt);
+      alert('프롬프트 복사됨.\n같은 구성으로 다시 생성하거나, 일부만 고쳐서 변형을 만들 수 있습니다.');
+    } catch {
+      alert('복사 실패. 아래 내용을 직접 선택해 복사해주세요.');
     }
   };
 
@@ -252,13 +307,40 @@ export default function ImageStudioPage() {
                             ))}
                           </div>
                         )}
-                        <button
-                          type="button"
-                          onClick={() => copyUrl(img.imageUrl)}
-                          style={S.copyBtn}
-                        >
-                          📋 URL 복사
-                        </button>
+                        <div style={S.cardBtnRow}>
+                          <button
+                            type="button"
+                            onClick={() => copyUrl(img.imageUrl)}
+                            style={S.copyBtn}
+                          >
+                            📋 URL
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setExpanded((p) => ({ ...p, [img._id]: !p[img._id] }))
+                            }
+                            style={S.copyBtn}
+                          >
+                            {expanded[img._id] ? '▲ 접기' : '▼ 프롬프트'}
+                          </button>
+                        </div>
+
+                        {/* 하단: 어떤 이미지로 만들어졌는지 + 실제 사용한 프롬프트 */}
+                        {expanded[img._id] && (
+                          <div style={S.cardDetail}>
+                            <Lineage inputs={img.inputImages} result={img.imageUrl} />
+                            <div style={S.promptLabel}>실제 사용한 프롬프트</div>
+                            <pre style={S.pre}>{img.prompt || '(기록 없음)'}</pre>
+                            <button
+                              type="button"
+                              onClick={() => copyPrompt(img.prompt)}
+                              style={S.copyBtn}
+                            >
+                              📋 프롬프트 복사
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -286,7 +368,8 @@ export default function ImageStudioPage() {
                 <Row label="생성 도구" value={`${detail.provider} / ${detail.model}`} />
                 {detail.elementId && <Row label="Element" value={detail.elementId} />}
                 {detail.note && <Row label="메모" value={detail.note} />}
-                <div style={S.promptLabel}>사용한 프롬프트</div>
+                <Lineage inputs={detail.inputImages} result={detail.imageUrl} />
+                <div style={S.promptLabel}>실제 사용한 프롬프트</div>
                 <pre style={S.pre}>{detail.prompt || '(기록 없음)'}</pre>
               </div>
             </div>
@@ -348,23 +431,36 @@ function ProcessTab({ images }: { images: GenImage[] }) {
         />
       </div>
 
-      {sample && (
-        <div style={S.sampleBox}>
-          <div style={S.sampleHead}>실제 사례 — {sample.title}</div>
-          <div style={S.sampleGrid}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={sample.imageUrl} alt={sample.title} style={S.sampleImg} />
-            <div style={S.sampleMeta}>
-              <Row label="사이즈" value={`${sample.width} × ${sample.height}`} />
-              <Row label="카피 자리" value={SAFE_AREA_LABEL[sample.textSafeArea] ?? sample.textSafeArea} />
-              <Row label="생성 도구" value={`${sample.provider} / ${sample.model}`} />
-              {sample.note && <Row label="구성" value={sample.note} />}
-            </div>
-          </div>
-          <div style={S.promptLabel}>실제로 사용한 프롬프트</div>
-          <pre style={S.pre}>{sample.prompt || '(기록 없음)'}</pre>
+      {images.length === 0 && (
+        <div style={S.emptyBox}>
+          아직 사례가 없습니다. 갤러리에 이미지가 등록되면
+          <br />
+          <span style={S.emptySub}>여기에 “무엇으로 어떻게 만들어졌는지”가 자동으로 표시됩니다.</span>
         </div>
       )}
+
+      {/* 등록된 모든 결과물의 계보 + 실제 프롬프트 */}
+      {images.map((img) => (
+        <div key={img._id} style={S.sampleBox}>
+          <div style={S.sampleHead}>실제 사례 — {img.title}</div>
+
+          <Lineage inputs={img.inputImages} result={img.imageUrl} />
+
+          <div style={S.sampleGrid}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={img.imageUrl} alt={img.title} style={S.sampleImg} />
+            <div style={S.sampleMeta}>
+              <Row label="사이즈" value={`${img.width} × ${img.height}`} />
+              <Row label="카피 자리" value={SAFE_AREA_LABEL[img.textSafeArea] ?? img.textSafeArea} />
+              <Row label="생성 도구" value={`${img.provider} / ${img.model}`} />
+              {img.note && <Row label="구성" value={img.note} />}
+            </div>
+          </div>
+
+          <div style={S.promptLabel}>실제로 사용한 프롬프트</div>
+          <pre style={S.pre}>{img.prompt || '(기록 없음)'}</pre>
+        </div>
+      ))}
     </div>
   );
 }
@@ -453,6 +549,24 @@ const S: Record<string, CSSProperties> = {
     width: '100%', padding: '7px 0', fontSize: 12, fontWeight: 600, color: '#374151',
     background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 6, cursor: 'pointer',
   },
+  cardBtnRow: { display: 'flex', gap: 6 },
+  cardDetail: { marginTop: 12, paddingTop: 12, borderTop: '1px dashed #e5e7eb' },
+
+  lineage: {
+    margin: '14px 0', padding: 14,
+    background: '#fafafa', border: '1px solid #e5e7eb', borderRadius: 10,
+  },
+  lineageTitle: { fontSize: 12, fontWeight: 700, color: '#6b7280', marginBottom: 10 },
+  lineageRow: { display: 'flex', gap: 10, alignItems: 'flex-start', flexWrap: 'wrap' },
+  lineageItem: { width: 150, flexShrink: 0 },
+  lineageImg: {
+    width: '100%', aspectRatio: '16/10', objectFit: 'cover',
+    borderRadius: 6, background: '#f3f4f6', display: 'block', border: '1px solid #e5e7eb',
+  },
+  lineageKind: { fontSize: 10, fontWeight: 700, color: '#6b7280', marginTop: 6 },
+  lineageName: { fontSize: 11, color: '#111827', lineHeight: 1.4, marginTop: 2 },
+  lineageRole: { fontSize: 10, color: '#9ca3af', lineHeight: 1.5, marginTop: 3 },
+  arrow: { fontSize: 20, color: '#fe6326', alignSelf: 'center', fontWeight: 700 },
 
   empty: { fontSize: 13, color: '#9ca3af' },
   emptyBox: {
