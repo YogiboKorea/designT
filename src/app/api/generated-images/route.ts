@@ -105,7 +105,8 @@ export async function POST(req: NextRequest) {
       width: body.width ?? 0,
       height: body.height ?? 0,
       prompt: body.prompt ?? '',
-      model: body.model ?? '',
+      // 레거시 'model' 키로 오는 요청도 받아준다 (초기 등록분 호환)
+      aiModel: body.aiModel ?? body.model ?? '',
       provider: body.provider ?? 'higgsfield',
       inputImages: body.inputImages ?? [],
       referenceIds: body.referenceIds ?? [],

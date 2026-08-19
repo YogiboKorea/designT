@@ -63,8 +63,8 @@ export interface IGeneratedImage extends Document {
 
   /** 실제로 사용한 영문 프롬프트 전문 */
   prompt: string;
-  /** 생성에 쓴 모델명 (예: nano_banana_2) */
-  model: string;
+  /** 생성에 쓴 AI 모델명 (예: nano_banana_2). Document.model() 과 충돌하므로 model 이 아니라 aiModel */
+  aiModel: string;
   /** 생성 도구 (현재는 higgsfield 고정, 추후 fal 등) */
   provider: string;
 
@@ -108,7 +108,7 @@ const GeneratedImageSchema = new Schema<IGeneratedImage>(
     height: { type: Number, default: 0 },
 
     prompt: { type: String, default: '' },
-    model: { type: String, default: '' },
+    aiModel: { type: String, default: '' },
     provider: { type: String, default: 'higgsfield' },
 
     inputImages: {

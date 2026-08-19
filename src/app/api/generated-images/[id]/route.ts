@@ -26,7 +26,7 @@ const ALLOWED = [
   'productId',
   'elementId',
   'sourceImageUrl',
-  'model',
+  'aiModel',
   'provider',
   'width',
   'height',

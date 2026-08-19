@@ -45,7 +45,7 @@ interface GenImage {
   width: number;
   height: number;
   prompt: string;
-  model: string;
+  aiModel: string;
   provider: string;
   elementId: string;
   textSafeArea: string;
@@ -365,7 +365,7 @@ export default function ImageStudioPage() {
               <div style={S.modalBody}>
                 <Row label="사이즈" value={`${detail.width} × ${detail.height}`} />
                 <Row label="카피 자리" value={SAFE_AREA_LABEL[detail.textSafeArea] ?? detail.textSafeArea} />
-                <Row label="생성 도구" value={`${detail.provider} / ${detail.model}`} />
+                <Row label="생성 도구" value={`${detail.provider} / ${detail.aiModel}`} />
                 {detail.elementId && <Row label="Element" value={detail.elementId} />}
                 {detail.note && <Row label="메모" value={detail.note} />}
                 <Lineage inputs={detail.inputImages} result={detail.imageUrl} />
@@ -452,7 +452,7 @@ function ProcessTab({ images }: { images: GenImage[] }) {
             <div style={S.sampleMeta}>
               <Row label="사이즈" value={`${img.width} × ${img.height}`} />
               <Row label="카피 자리" value={SAFE_AREA_LABEL[img.textSafeArea] ?? img.textSafeArea} />
-              <Row label="생성 도구" value={`${img.provider} / ${img.model}`} />
+              <Row label="생성 도구" value={`${img.provider} / ${img.aiModel}`} />
               {img.note && <Row label="구성" value={img.note} />}
             </div>
           </div>
