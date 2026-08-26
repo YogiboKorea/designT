@@ -30,7 +30,7 @@ interface Folder {
 }
 
 interface InputImage {
-  kind: 'reference' | 'product';
+  kind: 'reference' | 'product' | 'model';
   title: string;
   url: string;
   role?: string;
@@ -58,6 +58,7 @@ interface GenImage {
 const KIND_LABEL: Record<string, string> = {
   reference: '📚 레퍼런스 (풍)',
   product: '📦 제품 (형태·색)',
+  model: '🧍 모델 착석 썸네일',
 };
 
 /** "이 이미지들로 만들어졌다" — 입력 이미지 계보 */

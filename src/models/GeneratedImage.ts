@@ -37,8 +37,8 @@ export type TextSafeArea = 'left' | 'right' | 'top' | 'bottom' | 'center' | 'non
  * 그대로 남아야 하기 때문. 이력은 스냅샷이어야 한다.
  */
 export interface InputImage {
-  /** reference = 풍(스타일) 소스 / product = 제품 실사 */
-  kind: 'reference' | 'product';
+  /** reference = 풍(스타일) 소스 / product = 제품 단독 실사 / model = 모델 착석 썸네일 */
+  kind: 'reference' | 'product' | 'model';
   /** 화면에 보여줄 이름 */
   title: string;
   /** 실제 이미지 URL */
@@ -115,7 +115,7 @@ const GeneratedImageSchema = new Schema<IGeneratedImage>(
       type: [
         {
           _id: false,
-          kind: { type: String, enum: ['reference', 'product'], required: true },
+          kind: { type: String, enum: ['reference', 'product', 'model'], required: true },
           title: { type: String, default: '' },
           url: { type: String, required: true },
           role: { type: String, default: '' },

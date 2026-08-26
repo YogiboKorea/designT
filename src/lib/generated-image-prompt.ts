@@ -75,9 +75,25 @@ export function planAspect(targetW: number, targetH: number): AspectPlan {
 /** 카피가 들어갈 자리 — 가로형은 좌측, 세로형은 상단이 이커머스 관례 */
 export type TextSafeArea = 'left' | 'right' | 'top' | 'bottom' | 'center' | 'none';
 
-export function planTextSafeArea(targetW: number, targetH: number): TextSafeArea {
+/**
+ * 사이즈별 기본 카피 자리.
+ * ─────────────────────────────────────────────────────────────────
+ * ⚠️ 정사각을 'left' 로 두면 안 된다. SNS 는 상단 카피가 관례고,
+ *    가로 배너와 똑같은 "좌측 비우기" 구도가 반복되면 캠페인 전체가
+ *    한 장처럼 보인다 (실제로 그렇게 나와서 지적받음).
+ *
+ * 가로형은 좌/우 어느 쪽이든 되므로 side 인자로 뒤집을 수 있게 했다.
+ * 같은 캠페인 안에서 배너를 여러 장 뽑을 땐 번갈아 쓰는 게 좋다.
+ * ─────────────────────────────────────────────────────────────────
+ */
+export function planTextSafeArea(
+  targetW: number,
+  targetH: number,
+  side: 'left' | 'right' = 'left',
+): TextSafeArea {
   const r = targetW / targetH;
-  if (r >= 0.95) return 'left'; // 가로형·정사각 — 좌측 카피 / 우측 제품
+  if (r >= 1.3) return side; // 가로 배너 — 한쪽 카피 / 반대쪽 제품
+  if (r >= 0.95) return 'top'; // 정사각(SNS) — 상단 카피 / 하단 제품
   return 'top'; // 세로형(모바일) — 상단 카피 / 하단 제품
 }
 
